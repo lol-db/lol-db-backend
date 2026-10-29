@@ -1,1 +1,1 @@
-# db7-backend
+# lol-db-backend
