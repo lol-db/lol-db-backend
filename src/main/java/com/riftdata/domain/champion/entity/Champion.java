@@ -21,14 +21,14 @@ public class Champion {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "champion_id")
-	private Integer id;
+	private Long id;
 
-	/** CSV champion 값 (영문) */
-	@Column(name = "champion_name", nullable = false, length = 30, unique = true)
-	private String championName;
+	/** CSV champion 값 */
+	@Column(name = "name", nullable = false, length = 20, unique = true)
+	private String name;
 
 	@Builder
-	private Champion(String championName) {
-		this.championName = championName;
+	private Champion(String name) {
+		this.name = name;
 	}
 }

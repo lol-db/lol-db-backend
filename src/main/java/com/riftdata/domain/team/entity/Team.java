@@ -21,21 +21,14 @@ public class Team {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "team_id")
-	private Integer id;
+	private Long id;
 
-	@Column(name = "team_code", nullable = false, length = 5, unique = true)
-	private String teamCode;
-
-	@Column(name = "team_name", nullable = false, length = 50)
-	private String teamName;
-
-	@Column(name = "source_team_id", nullable = false, length = 60, unique = true)
-	private String sourceTeamId;
+	/** 팀코드 (T1, GEN) */
+	@Column(name = "code", nullable = false, length = 4, unique = true)
+	private String code;
 
 	@Builder
-	private Team(String teamCode, String teamName, String sourceTeamId) {
-		this.teamCode = teamCode;
-		this.teamName = teamName;
-		this.sourceTeamId = sourceTeamId;
+	private Team(String code) {
+		this.code = code;
 	}
 }

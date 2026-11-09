@@ -11,25 +11,23 @@ import com.riftdata.domain.match.repository.LckMatchRepository;
 import com.riftdata.domain.match.repository.MatchSetRepository;
 import com.riftdata.domain.match.repository.StageRepository;
 import com.riftdata.domain.player.entity.Player;
-import com.riftdata.domain.player.entity.PlayerSeasonStat;
+import com.riftdata.domain.player.entity.PlayerSeason;
 import com.riftdata.domain.player.repository.PlayerRepository;
-import com.riftdata.domain.player.repository.PlayerSeasonStatRepository;
-import com.riftdata.domain.record.entity.PlayerSetStat;
-import com.riftdata.domain.record.entity.PlayerSetStatId;
-import com.riftdata.domain.record.entity.SetBan;
-import com.riftdata.domain.record.entity.TeamSetStat;
-import com.riftdata.domain.record.entity.TeamSetStatId;
-import com.riftdata.domain.record.repository.PlayerSetStatRepository;
-import com.riftdata.domain.record.repository.SetBanRepository;
-import com.riftdata.domain.record.repository.TeamSetStatRepository;
+import com.riftdata.domain.player.repository.PlayerSeasonRepository;
+import com.riftdata.domain.record.entity.Ban;
+import com.riftdata.domain.record.entity.PlayerSet;
+import com.riftdata.domain.record.entity.TeamSet;
+import com.riftdata.domain.record.repository.BanRepository;
+import com.riftdata.domain.record.repository.PlayerSetRepository;
+import com.riftdata.domain.record.repository.TeamSetRepository;
 import com.riftdata.domain.team.entity.Team;
 import com.riftdata.domain.team.repository.TeamRepository;
 import com.riftdata.global.common.Position;
 import com.riftdata.global.common.Side;
 import jakarta.persistence.EntityManager;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -50,71 +48,88 @@ class EntityMappingTests {
 	@Autowired StageRepository stageRepository;
 	@Autowired LckMatchRepository matchRepository;
 	@Autowired MatchSetRepository matchSetRepository;
-	@Autowired TeamSetStatRepository teamSetStatRepository;
-	@Autowired PlayerSetStatRepository playerSetStatRepository;
-	@Autowired SetBanRepository setBanRepository;
-	@Autowired PlayerSeasonStatRepository seasonStatRepository;
+	@Autowired TeamSetRepository teamSetRepository;
+	@Autowired PlayerSetRepository playerSetRepository;
+	@Autowired BanRepository banRepository;
+	@Autowired PlayerSeasonRepository seasonRepository;
 
 	@Test
 	void savesAndReadsEveryEntity() {
-		Team t1 = teamRepository.save(Team.builder().teamCode("TST1").teamName("Test One").sourceTeamId("test-team-1").build());
-		Team t2 = teamRepository.save(Team.builder().teamCode("TST2").teamName("Test Two").sourceTeamId("test-team-2").build());
+		Team t1 = teamRepository.save(Team.builder().code("TST1").build());
+		Team t2 = teamRepository.save(Team.builder().code("TST2").build());
 		Player mid = playerRepository.save(Player.builder()
-				.team(t1).playerName("TestMid").mainPosition(Position.MID).sourcePlayerId("test-player-1").build());
+				.team(t1).nickname("TestMid").position(Position.MID).build());
 		Player jungle = playerRepository.save(Player.builder()
-				.team(t1).playerName("TestJungle").mainPosition(Position.JGL).sourcePlayerId("test-player-2").build());
-		Champion ahri = championRepository.save(Champion.builder().championName("TestAhri").build());
-		Champion azir = championRepository.save(Champion.builder().championName("TestAzir").build());
+				.team(t1).nickname("TestJungle").position(Position.JUNGLE).name("홍길동").build());
+		Champion ahri = championRepository.save(Champion.builder().name("TestAhri").build());
+		Champion azir = championRepository.save(Champion.builder().name("TestAzir").build());
 		Stage stage = stageRepository.save(Stage.builder()
-				.stageCode("TST").stageName("Test Round").stageOrder(99)
+				.name("Test Round").stageOrder(99)
 				.startDate(LocalDate.of(2026, 1, 1)).endDate(LocalDate.of(2026, 2, 1)).regular(true).build());
 
 		LckMatch match = matchRepository.save(LckMatch.builder()
-				.stage(stage).matchAt(LocalDateTime.of(2026, 1, 14, 17, 0)).team1(t1).team2(t2).build());
+				.matchTime(LocalDateTime.of(2026, 1, 14, 17, 0)).sets(3).team1(t1).team2(t2).stage(stage).build());
 		MatchSet set1 = matchSetRepository.save(MatchSet.builder()
-				.match(match).setNo(1).sourceGameId("test-game-1").patch("26.01").durationSec(1850).build());
+				.match(match).setNumber(1).gameId("test-game-1").version("26.01")
+				.playTime(LocalTime.of(0, 30, 50)).build());
 
-		TeamSetStat blue = teamSetStatRepository.save(TeamSetStat.builder()
-				.id(TeamSetStatId.of(match.getId(), set1.getSetNo(), t1.getId()))
+		TeamSet blue = teamSetRepository.save(TeamSet.builder()
 				.matchSet(set1).team(t1)
-				.side(Side.BLUE).win(true).dragons(3).towers(9)
+				.side(Side.BLUE).victory(true).dragons(3).towers(9)
 				.build());
-		playerSetStatRepository.save(PlayerSetStat.builder()
-				.id(PlayerSetStatId.of(blue.getId(), Position.MID))
-				.teamSetStat(blue).player(mid).champion(ahri)
+		teamSetRepository.save(TeamSet.builder()
+				.matchSet(set1).team(t2).side(Side.RED).victory(false).build());
+		playerSetRepository.save(PlayerSet.builder()
+				.teamSet(blue).position(Position.MID).player(mid).champion(ahri)
 				.kills(5).deaths(1).assists(8).damageToChampions(28_500)
-				.damageTakenPm(new BigDecimal("612.4")).goldAt10(3_400)
+				.damageTakenPm(612).totalGolds(14_250).goldAt10(3_400).csAt10(95)
 				.build());
-		setBanRepository.save(SetBan.builder().teamSetStat(blue).banOrder(1).champion(azir).build());
-		seasonStatRepository.save(PlayerSeasonStat.builder()
-				.player(mid).setCount(12).overallScore(new BigDecimal("81.25"))
+		banRepository.save(Ban.builder().teamSet(blue).banOrder(1).champion(azir).build());
+		seasonRepository.save(PlayerSeason.builder()
+				.player(mid).sets(12).totalPoints(81)
 				.calculatedAt(LocalDateTime.of(2026, 2, 2, 3, 0)).build());
 
 		em.flush();
 		em.clear();
 
-		assertThat(matchSetRepository.findByIdMatchIdOrderByIdSetNoAsc(match.getId())).hasSize(1);
+		MatchSet savedSet = matchSetRepository.findByMatchIdAndSetNumber(match.getId(), 1).orElseThrow();
+		assertThat(savedSet.getPlaySeconds()).isEqualTo(1850);
+		assertThat(teamSetRepository.findByMatchSetId(savedSet.getId())).hasSize(2);
 
-		TeamSetStat savedBlue = teamSetStatRepository.findById(blue.getId()).orElseThrow();
+		TeamSet savedBlue = teamSetRepository.findByMatchSetIdAndTeamId(savedSet.getId(), t1.getId()).orElseThrow();
 		assertThat(savedBlue.getSide()).isEqualTo(Side.BLUE);
-		assertThat(savedBlue.getWin()).isTrue();
+		assertThat(savedBlue.getVictory()).isTrue();
 		assertThat(savedBlue.getFirstBlood()).isFalse();
-		assertThat(savedBlue.getTeam().getTeamCode()).isEqualTo("TST1");
+		assertThat(savedBlue.getTeam().getCode()).isEqualTo("TST1");
 
-		PlayerSetStat savedMid = playerSetStatRepository.findByPlayerId(mid.getId()).getFirst();
-		assertThat(savedMid.getId().getPosition()).isEqualTo(Position.MID);
+		PlayerSet savedMid = playerSetRepository.findByPlayerId(mid.getId()).getFirst();
+		assertThat(savedMid.getPosition()).isEqualTo(Position.MID);
 		assertThat(savedMid.getKills()).isEqualTo(5);
-		assertThat(savedMid.getDamageTakenPm()).isEqualByComparingTo("612.4");
+		assertThat(savedMid.getDamageTakenPm()).isEqualTo(612);
+		assertThat(savedMid.getTotalGolds()).isEqualTo(14_250);
 		assertThat(savedMid.getGoldAt15()).isNull();
+		assertThat(savedMid.getTotalPoints()).isNull();
 		assertThat(savedMid.getPog()).isFalse();
-		assertThat(savedMid.getChampion().getChampionName()).isEqualTo("TestAhri");
-		assertThat(savedMid.getTeamSetStat().getMatchSet().getMatch().getStage().getStageCode()).isEqualTo("TST");
+		assertThat(savedMid.getChampion().getName()).isEqualTo("TestAhri");
+		assertThat(savedMid.getTeamSet().getMatchSet().getMatch().getStage().getName()).isEqualTo("Test Round");
+		assertThat(playerSetRepository.findByTeamSetMatchSetId(savedSet.getId())).hasSize(1);
 
-		assertThat(setBanRepository.findByIdMatchIdAndIdSetNo(match.getId(), 1))
-				.extracting(ban -> ban.getChampion().getChampionName()).containsExactly("TestAzir");
-		assertThat(playerRepository.findById(jungle.getId()).orElseThrow().getMainPosition()).isEqualTo(Position.JGL);
-		assertThat(seasonStatRepository.findById(mid.getId()).orElseThrow().getOverallScore())
-				.isEqualByComparingTo("81.25");
-		assertThat(matchRepository.findById(match.getId()).orElseThrow().getBestOf()).isEqualTo(3);
+		assertThat(banRepository.findByTeamSetMatchSetId(savedSet.getId()))
+				.extracting(ban -> ban.getChampion().getName()).containsExactly("TestAzir");
+
+		Player savedJungle = playerRepository.findByNickname("TestJungle").orElseThrow();
+		assertThat(savedJungle.getPosition()).isEqualTo(Position.JUNGLE);
+		assertThat(savedJungle.getName()).isEqualTo("홍길동");
+		assertThat(playerRepository.findById(mid.getId()).orElseThrow().getName()).isNull();
+
+		assertThat(seasonRepository.findByPlayerId(mid.getId()).orElseThrow().getTotalPoints()).isEqualTo(81);
+		assertThat(matchRepository.findById(match.getId()).orElseThrow().getSets()).isEqualTo(3);
+	}
+
+	@Test
+	void mapsCsvPositionValues() {
+		assertThat(Position.fromCsv("jng")).isEqualTo(Position.JUNGLE);
+		assertThat(Position.fromCsv("bot")).isEqualTo(Position.ADC);
+		assertThat(Position.fromCsv("sup")).isEqualTo(Position.SUPPORT);
 	}
 }

@@ -2,6 +2,8 @@ package com.riftdata.domain.match.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
@@ -12,7 +14,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** 스테이지 (stage). 기준정보라 PK가 코드값이다. */
+/** 스테이지 (stage). B1에서 초기 입력하는 기준정보다. */
 @Entity
 @Table(name = "stage")
 @Getter
@@ -20,12 +22,14 @@ import org.hibernate.type.SqlTypes;
 public class Stage {
 
 	@Id
-	@Column(name = "stage_code", length = 3)
-	private String stageCode;
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "stage_id")
+	private Long id;
 
-	@Column(name = "stage_name", nullable = false, length = 30)
-	private String stageName;
+	@Column(name = "name", nullable = false, length = 20)
+	private String name;
 
+	/** 진행순서 (ERD의 order, 예약어라 이름 변경) */
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "stage_order", nullable = false, unique = true)
 	private Integer stageOrder;
@@ -36,15 +40,13 @@ public class Stage {
 	@Column(name = "end_date", nullable = false)
 	private LocalDate endDate;
 
-	/** 순위표 집계 대상 여부 (정규 라운드 = true) */
+	/** 정규여부 (true면 순위표 집계 대상) */
 	@Column(name = "is_regular", nullable = false)
 	private Boolean regular;
 
 	@Builder
-	private Stage(String stageCode, String stageName, Integer stageOrder,
-			LocalDate startDate, LocalDate endDate, Boolean regular) {
-		this.stageCode = stageCode;
-		this.stageName = stageName;
+	private Stage(String name, Integer stageOrder, LocalDate startDate, LocalDate endDate, Boolean regular) {
+		this.name = name;
 		this.stageOrder = stageOrder;
 		this.startDate = startDate;
 		this.endDate = endDate;

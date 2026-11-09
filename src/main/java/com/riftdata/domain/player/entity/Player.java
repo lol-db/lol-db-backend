@@ -17,8 +17,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /** 선수 (player) */
 @Entity
@@ -30,34 +28,40 @@ public class Player {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "player_id")
-	private Integer id;
+	private Long id;
 
 	/** 현재 소속 팀 */
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "team_id", nullable = false)
 	private Team team;
 
-	@Column(name = "player_name", nullable = false, length = 30)
-	private String playerName;
+	/** 프로게이머 닉네임 (CSV playername) */
+	@Column(name = "nickname", nullable = false, length = 15, unique = true)
+	private String nickname;
 
+	/** 주포지션 */
 	@Enumerated(EnumType.STRING)
-	@JdbcTypeCode(SqlTypes.CHAR)
-	@Column(name = "main_position", nullable = false, length = 3)
-	private Position mainPosition;
+	@Column(name = "position", nullable = false)
+	private Position position;
 
-	@Column(name = "source_player_id", nullable = false, length = 60, unique = true)
-	private String sourcePlayerId;
+	/** 실명. CSV에 없어서 직접 입력하고, 없으면 NULL */
+	@Column(name = "name", length = 15)
+	private String name;
 
 	@Builder
-	private Player(Team team, String playerName, Position mainPosition, String sourcePlayerId) {
+	private Player(Team team, String nickname, Position position, String name) {
 		this.team = team;
-		this.playerName = playerName;
-		this.mainPosition = mainPosition;
-		this.sourcePlayerId = sourcePlayerId;
+		this.nickname = nickname;
+		this.position = position;
+		this.name = name;
 	}
 
-	/** 이적 등으로 소속 팀이 바뀔 때 */
+	/** 이적 등으로 소속 팀이 바뀔 때 (B2 CSV 적재) */
 	public void changeTeam(Team team) {
 		this.team = team;
+	}
+
+	public void changeName(String name) {
+		this.name = name;
 	}
 }

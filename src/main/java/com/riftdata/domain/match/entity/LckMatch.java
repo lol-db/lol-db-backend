@@ -28,20 +28,16 @@ public class LckMatch {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "match_id")
-	private Integer id;
+	private Long id;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "stage_code", nullable = false)
-	private Stage stage;
+	/** 경기일시 */
+	@Column(name = "match_time", nullable = false)
+	private LocalDateTime matchTime;
 
-	/** 경기 일시 (CSV date) */
-	@Column(name = "match_at", nullable = false)
-	private LocalDateTime matchAt;
-
-	/** 세트 수 (Bo3, Bo5) */
+	/** 세트 수 (bo3 = 3, bo5 = 5) */
 	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "best_of", nullable = false)
-	private Integer bestOf;
+	@Column(name = "sets", nullable = false)
+	private Integer sets;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "team1_id", nullable = false)
@@ -51,12 +47,16 @@ public class LckMatch {
 	@JoinColumn(name = "team2_id", nullable = false)
 	private Team team2;
 
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "stage_id", nullable = false)
+	private Stage stage;
+
 	@Builder
-	private LckMatch(Stage stage, LocalDateTime matchAt, Integer bestOf, Team team1, Team team2) {
-		this.stage = stage;
-		this.matchAt = matchAt;
-		this.bestOf = bestOf != null ? bestOf : 3;
+	private LckMatch(LocalDateTime matchTime, Integer sets, Team team1, Team team2, Stage stage) {
+		this.matchTime = matchTime;
+		this.sets = sets;
 		this.team1 = team1;
 		this.team2 = team2;
+		this.stage = stage;
 	}
 }

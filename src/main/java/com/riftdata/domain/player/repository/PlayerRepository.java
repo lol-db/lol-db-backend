@@ -6,13 +6,15 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface PlayerRepository extends JpaRepository<Player, Integer> {
+public interface PlayerRepository extends JpaRepository<Player, Long> {
 
-	Optional<Player> findBySourcePlayerId(String sourcePlayerId);
+	Optional<Player> findByNickname(String nickname);
 
-	List<Player> findByPlayerNameContainingIgnoreCase(String keyword);
+	/** 공통 헤더 검색 */
+	List<Player> findByNicknameContainingIgnoreCase(String keyword);
 
-	List<Player> findByMainPosition(Position position);
+	/** 포지션별 랭킹 (ix_player_position) */
+	List<Player> findByPosition(Position position);
 
-	List<Player> findByTeamId(Integer teamId);
+	List<Player> findByTeamId(Long teamId);
 }

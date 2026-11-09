@@ -40,10 +40,10 @@ mysql -h 127.0.0.1 -u root -p riftdata < src/main/resources/db/schema.sql
 com.riftdata
 ├── domain
 │   ├── team       Team
-│   ├── player     Player, PlayerSeasonStat
+│   ├── player     Player, PlayerSeason
 │   ├── champion   Champion
 │   ├── match      Stage, LckMatch, MatchSet
-│   └── record     TeamSetStat, PlayerSetStat, SetBan
+│   └── record     TeamSet, PlayerSet, Ban
 │       (각 도메인 아래 entity / repository / service / controller / dto)
 └── global
     ├── common     Position, Side (코드값 enum)

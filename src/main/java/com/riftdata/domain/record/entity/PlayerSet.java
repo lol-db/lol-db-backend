@@ -2,15 +2,19 @@ package com.riftdata.domain.record.entity;
 
 import com.riftdata.domain.champion.entity.Champion;
 import com.riftdata.domain.player.entity.Player;
+import com.riftdata.global.common.Position;
 import jakarta.persistence.Column;
-import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,39 +24,43 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * 선수세트기록 (player_set_stat). 팀세트기록의 종속 엔티티 (팀당 5행, 포지션별 1행).
+ * 선수세트지표 (player_set). 팀세트기록당 5행 (포지션별 1행).
  *
- * <p>CSV 원본 값만 저장한다. 분당·비율·차이 지표는 뷰(v_player_set)에서 계산한다.
- * 시간대 값(xx_at_NN)은 경기가 그 전에 끝나면 NULL이다.
+ * <p>논리 ERD의 선수세트시간대별지표를 컬럼으로 합쳤다 (10·15·20·25분 × 골드·경험치·CS·킬·데스·어시스트).
+ * 시간대 값은 경기가 그 전에 끝나면 NULL이다. 분당·비율·맞라이너 차이는 뷰(v_player_set)에서 계산한다.
  *
  * <pre>
- * PlayerSetStat.builder()
- *     .id(PlayerSetStatId.of(teamSet.getId(), Position.MID))
- *     .teamSetStat(teamSet).player(player).champion(champion)
+ * PlayerSet.builder()
+ *     .teamSet(teamSet).position(Position.MID).player(player).champion(champion)
  *     .kills(3).deaths(1).assists(7)
  *     ...
  *     .build();
  * </pre>
  */
 @Entity
-@Table(name = "player_set_stat")
+@Table(name = "player_set", uniqueConstraints = {
+		@UniqueConstraint(name = "uk_player_set_position", columnNames = {"team_set_id", "position"}),
+		@UniqueConstraint(name = "uk_player_set_player", columnNames = {"team_set_id", "player_id"})
+})
 @Getter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
-public class PlayerSetStat {
+public class PlayerSet {
 
-	@EmbeddedId
-	private PlayerSetStatId id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name = "player_set_id")
+	private Long id;
 
-	/** 키 값은 id가 관리하고, 이 필드는 조회용이다. */
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumns({
-			@JoinColumn(name = "match_id", referencedColumnName = "match_id", insertable = false, updatable = false),
-			@JoinColumn(name = "set_no", referencedColumnName = "set_no", insertable = false, updatable = false),
-			@JoinColumn(name = "team_id", referencedColumnName = "team_id", insertable = false, updatable = false)
-	})
-	private TeamSetStat teamSetStat;
+	@JoinColumn(name = "team_set_id", nullable = false)
+	private TeamSet teamSet;
+
+	/** 포지션 */
+	@Enumerated(EnumType.STRING)
+	@Column(name = "position", nullable = false)
+	private Position position;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "player_id", nullable = false)
@@ -62,140 +70,140 @@ public class PlayerSetStat {
 	@JoinColumn(name = "champion_id", nullable = false)
 	private Champion champion;
 
-	/** 킬 */
+	/** 킬 수 */
 	@Builder.Default
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "kills", nullable = false)
 	private Integer kills = 0;
 
-	/** 데스 */
+	/** 데스 수 */
 	@Builder.Default
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "deaths", nullable = false)
 	private Integer deaths = 0;
 
-	/** 어시스트 */
+	/** 어시스트 수 */
 	@Builder.Default
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "assists", nullable = false)
 	private Integer assists = 0;
 
-	/** 더블킬 */
+	/** 더블킬 수 */
 	@Builder.Default
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "double_kills", nullable = false)
 	private Integer doubleKills = 0;
 
-	/** 트리플킬 */
+	/** 트리플킬 수 */
 	@Builder.Default
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "triple_kills", nullable = false)
 	private Integer tripleKills = 0;
 
-	/** 쿼드라킬 */
+	/** 쿼드라킬 수 */
 	@Builder.Default
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "quadra_kills", nullable = false)
 	private Integer quadraKills = 0;
 
-	/** 펜타킬 */
+	/** 펜타킬 수 */
 	@Builder.Default
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "penta_kills", nullable = false)
 	private Integer pentaKills = 0;
 
-	/** 첫 킬을 함 */
+	/** 선취점 킬 */
 	@Builder.Default
 	@Column(name = "first_blood_kill", nullable = false)
 	private Boolean firstBloodKill = false;
 
-	/** 첫 킬 어시스트 */
+	/** 선취점 어시스트 */
 	@Builder.Default
 	@Column(name = "first_blood_assist", nullable = false)
 	private Boolean firstBloodAssist = false;
 
-	/** 첫 킬을 당함 */
+	/** 선취점 데스 */
 	@Builder.Default
-	@Column(name = "first_blood_victim", nullable = false)
-	private Boolean firstBloodVictim = false;
+	@Column(name = "first_blood_death", nullable = false)
+	private Boolean firstBloodDeath = false;
 
-	/** 챔피언에게 준 피해 */
+	/** 챔피언에게 가한 피해량 */
 	@Builder.Default
 	@Column(name = "damage_to_champions", nullable = false)
 	private Integer damageToChampions = 0;
 
-	/** 분당 받은 피해 */
-	@Column(name = "damage_taken_pm", precision = 7, scale = 1)
-	private BigDecimal damageTakenPm;
+	/** 받은 피해량 (분당) */
+	@Column(name = "damage_taken_pm")
+	private Integer damageTakenPm;
 
-	/** 분당 경감한 피해 */
-	@Column(name = "damage_mitigated_pm", precision = 7, scale = 1)
-	private BigDecimal damageMitigatedPm;
+	/** 경감한 피해량 (분당) */
+	@Column(name = "damage_mitigated_pm")
+	private Integer damageMitigatedPm;
 
-	/** 건물에 준 피해 */
+	/** 건물에게 가한 피해량 */
 	@Column(name = "damage_to_buildings")
 	private Integer damageToBuildings;
 
-	/** 시야 점수 */
+	/** 시야점수 */
 	@Builder.Default
 	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "vision_score", nullable = false)
-	private Integer visionScore = 0;
+	@Column(name = "vision_points", nullable = false)
+	private Integer visionPoints = 0;
 
-	/** 와드 설치 */
+	/** 설치한 와드 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.SMALLINT)
+	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "wards_placed", nullable = false)
 	private Integer wardsPlaced = 0;
 
-	/** 와드 제거 */
+	/** 제거한 와드 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "wards_killed", nullable = false)
-	private Integer wardsKilled = 0;
+	@JdbcTypeCode(SqlTypes.TINYINT)
+	@Column(name = "wards_removed", nullable = false)
+	private Integer wardsRemoved = 0;
 
-	/** 제어 와드 구매 */
+	/** 제어와드 구매 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.SMALLINT)
+	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "control_wards_bought", nullable = false)
 	private Integer controlWardsBought = 0;
 
 	/** 총 골드 */
 	@Builder.Default
-	@Column(name = "total_gold", nullable = false)
-	private Integer totalGold = 0;
+	@Column(name = "total_golds", nullable = false)
+	private Integer totalGolds = 0;
 
-	/** 획득 골드 */
+	/** 획득한 골드 */
 	@Builder.Default
-	@Column(name = "earned_gold", nullable = false)
-	private Integer earnedGold = 0;
+	@Column(name = "earned_golds", nullable = false)
+	private Integer earnedGolds = 0;
 
-	/** 사용 골드 */
+	/** 사용한 골드 */
 	@Builder.Default
 	@Column(name = "gold_spent", nullable = false)
 	private Integer goldSpent = 0;
 
-	/** 미니언 처치 */
+	/** 미니언 처치 수 */
 	@Builder.Default
 	@JdbcTypeCode(SqlTypes.SMALLINT)
 	@Column(name = "minion_kills", nullable = false)
 	private Integer minionKills = 0;
 
-	/** 정글 몬스터 처치 */
+	/** 몬스터 처치 수 */
 	@Builder.Default
 	@JdbcTypeCode(SqlTypes.SMALLINT)
 	@Column(name = "monster_kills", nullable = false)
 	private Integer monsterKills = 0;
 
-	/** 우리 정글 몬스터 처치 */
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "monster_kills_own")
-	private Integer monsterKillsOwn;
+	/** 총 점수 0~100 (유도, B3에서 계산) */
+	@JdbcTypeCode(SqlTypes.TINYINT)
+	@Column(name = "total_points")
+	private Integer totalPoints;
 
-	/** 상대 정글 몬스터 처치 */
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "monster_kills_enemy")
-	private Integer monsterKillsEnemy;
+	/** POG 여부 (유도, B3에서 계산) */
+	@Builder.Default
+	@Column(name = "is_pog", nullable = false)
+	private Boolean pog = false;
 
 	/** 10분 골드 */
 	@Column(name = "gold_at_10")
@@ -215,15 +223,15 @@ public class PlayerSetStat {
 	@Column(name = "kills_at_10")
 	private Integer killsAt10;
 
-	/** 10분 어시스트 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "assists_at_10")
-	private Integer assistsAt10;
-
 	/** 10분 데스 */
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "deaths_at_10")
 	private Integer deathsAt10;
+
+	/** 10분 어시스트 */
+	@JdbcTypeCode(SqlTypes.TINYINT)
+	@Column(name = "assists_at_10")
+	private Integer assistsAt10;
 
 	/** 15분 골드 */
 	@Column(name = "gold_at_15")
@@ -243,15 +251,15 @@ public class PlayerSetStat {
 	@Column(name = "kills_at_15")
 	private Integer killsAt15;
 
-	/** 15분 어시스트 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "assists_at_15")
-	private Integer assistsAt15;
-
 	/** 15분 데스 */
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "deaths_at_15")
 	private Integer deathsAt15;
+
+	/** 15분 어시스트 */
+	@JdbcTypeCode(SqlTypes.TINYINT)
+	@Column(name = "assists_at_15")
+	private Integer assistsAt15;
 
 	/** 20분 골드 */
 	@Column(name = "gold_at_20")
@@ -271,15 +279,15 @@ public class PlayerSetStat {
 	@Column(name = "kills_at_20")
 	private Integer killsAt20;
 
-	/** 20분 어시스트 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "assists_at_20")
-	private Integer assistsAt20;
-
 	/** 20분 데스 */
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "deaths_at_20")
 	private Integer deathsAt20;
+
+	/** 20분 어시스트 */
+	@JdbcTypeCode(SqlTypes.TINYINT)
+	@Column(name = "assists_at_20")
+	private Integer assistsAt20;
 
 	/** 25분 골드 */
 	@Column(name = "gold_at_25")
@@ -299,28 +307,19 @@ public class PlayerSetStat {
 	@Column(name = "kills_at_25")
 	private Integer killsAt25;
 
-	/** 25분 어시스트 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "assists_at_25")
-	private Integer assistsAt25;
-
 	/** 25분 데스 */
 	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "deaths_at_25")
 	private Integer deathsAt25;
 
-	/** 세트 평점 0–10 (유도) */
-	@Column(name = "rating", precision = 3, scale = 1)
-	private BigDecimal rating;
+	/** 25분 어시스트 */
+	@JdbcTypeCode(SqlTypes.TINYINT)
+	@Column(name = "assists_at_25")
+	private Integer assistsAt25;
 
-	/** POG 여부 (유도) */
-	@Builder.Default
-	@Column(name = "is_pog", nullable = false)
-	private Boolean pog = false;
-
-	/** B3 배치: 세트 평점과 POG를 계산해 넣는다. */
-	public void applyRating(BigDecimal rating, boolean pog) {
-		this.rating = rating;
+	/** B3 배치: 세트 총 점수와 POG를 계산해 넣는다. */
+	public void applyTotalPoints(Integer totalPoints, boolean pog) {
+		this.totalPoints = totalPoints;
 		this.pog = pog;
 	}
 }
