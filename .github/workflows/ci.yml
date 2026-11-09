@@ -23,7 +23,7 @@ jobs:
         image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: esports
+          MYSQL_DATABASE: riftdata
         ports:
           - 3306:3306
         options: >-
@@ -33,7 +33,9 @@ jobs:
           --health-retries=20
 
     env:
-      DB_URL: jdbc:mysql://127.0.0.1:3306/esports
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: riftdata
       DB_USERNAME: root
       DB_PASSWORD: root
 
@@ -46,6 +48,10 @@ jobs:
           java-version: '21'
 
       - uses: gradle/actions/setup-gradle@v6
+
+      # 엔티티 검사(ddl-auto: validate)를 하려면 테이블이 먼저 있어야 한다.
+      - name: Create tables
+        run: mysql -h 127.0.0.1 -u root -proot riftdata < src/main/resources/db/schema.sql
 
       - name: Build and test
         run: ./gradlew build
