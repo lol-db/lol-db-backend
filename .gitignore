@@ -39,3 +39,5 @@ out/
 ### OS / secrets ###
 .DS_Store
 .env
+*.env
+!.env.example

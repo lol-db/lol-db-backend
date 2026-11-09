@@ -1,0 +1,4 @@
+spring:
+  jpa:
+    # 로컬에서 실행한 SQL을 확인한다. JPA_SHOW_SQL=false로 끌 수 있다.
+    show-sql: ${JPA_SHOW_SQL:true}
