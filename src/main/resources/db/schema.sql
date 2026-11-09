@@ -1,4 +1,4 @@
--- RIFT DATA 테이블 DDL (MySQL 8.4, InnoDB, utf8mb4_unicode_ci)
+-- RIFT DATA 테이블 DDL (MySQL 8.0, InnoDB, utf8mb4_unicode_ci)
 --
 -- 재호의 「물리DB 설계」 테이블 기술서를 그대로 옮겼다.
 -- 원본 DDL(RIFT_DATA_DDL_최종.sql)을 받으면 이 파일을 그것으로 바꾼다.
