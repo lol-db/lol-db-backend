@@ -1,4 +1,9 @@
 spring:
+  config:
+    import: optional:file:.env[.properties]
+  profiles:
+    default: local
+
   application:
     name: backend
 
@@ -14,7 +19,6 @@ spring:
       # 테이블은 db/schema.sql로 만들고, 엔티티가 그 테이블과 같은지 시작할 때 검사만 한다.
       ddl-auto: validate
     open-in-view: false
-    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: true
