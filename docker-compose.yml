@@ -1,0 +1,34 @@
+# 로컬 개발용 MySQL (배포 설정 아님)
+# 값은 같은 폴더의 .env에서 읽고, 없으면 오른쪽 기본값을 쓴다.
+# 처음 켤 때 src/main/resources/db/schema.sql이 자동으로 실행돼 테이블이 만들어진다.
+#   docker compose up -d     실행
+#   docker compose down      중지 (데이터 유지)
+#   docker compose down -v   중지 + 데이터 삭제 (schema.sql을 바꿨을 때)
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: riftdata-mysql
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-riftdata}
+      # 서버는 이 일반 계정으로 접속한다. .env의 DB_USERNAME에는 root가 아닌 이름(예: riftdata)을 넣는다.
+      # MySQL 이미지는 MYSQL_USER에 root를 허용하지 않아, root를 넣으면 컨테이너가 뜨지 않는다.
+      MYSQL_USER: ${DB_USERNAME:-riftdata}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-riftdata}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD:-root}", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mysql-data:

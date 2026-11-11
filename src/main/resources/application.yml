@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: backend
+
+  # 접속 정보는 환경변수로 받는다. 없으면 로컬 기본값(localhost:3306, riftdata, root/root)을 쓴다.
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:riftdata}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      # 테이블은 db/schema.sql로 만들고, 엔티티가 그 테이블과 같은지 시작할 때 검사만 한다.
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
