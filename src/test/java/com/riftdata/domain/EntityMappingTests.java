@@ -83,6 +83,7 @@ class EntityMappingTests {
 				.teamSet(blue).position(Position.MID).player(mid).champion(ahri)
 				.kills(5).deaths(1).assists(8).damageToChampions(28_500)
 				.damageTakenPm(612).totalGolds(14_250).goldAt10(3_400).csAt10(95)
+				.wardsPlaced(136) // 2025 LCK T1 vs GEN 3세트 Keria 실제 기록
 				.build());
 		banRepository.save(Ban.builder().teamSet(blue).banOrder(1).champion(azir).build());
 		seasonRepository.save(PlayerSeason.builder()
@@ -107,6 +108,7 @@ class EntityMappingTests {
 		assertThat(savedMid.getKills()).isEqualTo(5);
 		assertThat(savedMid.getDamageTakenPm()).isEqualTo(612);
 		assertThat(savedMid.getTotalGolds()).isEqualTo(14_250);
+		assertThat(savedMid.getWardsPlaced()).isEqualTo(136);
 		assertThat(savedMid.getGoldAt15()).isNull();
 		assertThat(savedMid.getTotalPoints()).isNull();
 		assertThat(savedMid.getPog()).isFalse();

@@ -150,9 +150,11 @@ public class PlayerSet {
 	@Column(name = "vision_points", nullable = false)
 	private Integer visionPoints = 0;
 
-	/** 설치한 와드 수 */
+	/**
+	 * 설치한 와드 수. 서포터는 128 이상이 나온다 (2025 LCK Keria 136).
+	 * TINYINT 매핑은 Java byte(-128~127)로 값을 넘겨서 128 이상을 저장할 수 없으므로 INT로 둔다.
+	 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
 	@Column(name = "wards_placed", nullable = false)
 	private Integer wardsPlaced = 0;
 

@@ -145,7 +145,7 @@ CREATE TABLE player_set (
     damage_mitigated_pm  INT UNSIGNED      NULL COMMENT '경감한 피해량 (분당)',
     damage_to_buildings  INT UNSIGNED      NULL COMMENT '건물에게 가한 피해량',
     vision_points        SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '시야점수',
-    wards_placed         TINYINT UNSIGNED  NOT NULL DEFAULT 0 COMMENT '설치한 와드 수',
+    wards_placed         INT UNSIGNED      NOT NULL DEFAULT 0 COMMENT '설치한 와드 수 (서포터 136 실측, TINYINT로는 매핑 불가)',
     wards_removed        TINYINT UNSIGNED  NOT NULL DEFAULT 0 COMMENT '제거한 와드 수',
     control_wards_bought TINYINT UNSIGNED  NOT NULL DEFAULT 0 COMMENT '제어와드 구매 수',
     total_golds          INT UNSIGNED      NOT NULL DEFAULT 0 COMMENT '총 골드',

@@ -13,7 +13,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ${DB_NAME:-riftdata}
-      # MYSQL_USER에는 root를 쓸 수 없다. root로 접속하려면 DB_USERNAME=root, DB_PASSWORD=<DB_ROOT_PASSWORD 값>
+      # 서버는 이 일반 계정으로 접속한다. .env의 DB_USERNAME에는 root가 아닌 이름(예: riftdata)을 넣는다.
+      # MySQL 이미지는 MYSQL_USER에 root를 허용하지 않아, root를 넣으면 컨테이너가 뜨지 않는다.
       MYSQL_USER: ${DB_USERNAME:-riftdata}
       MYSQL_PASSWORD: ${DB_PASSWORD:-riftdata}
       TZ: Asia/Seoul
