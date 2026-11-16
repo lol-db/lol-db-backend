@@ -1,8 +1,12 @@
 package com.riftdata.domain.record.repository;
 
+import com.riftdata.domain.record.dto.SetPog;
 import com.riftdata.domain.record.entity.PlayerSet;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface PlayerSetRepository extends JpaRepository<PlayerSet, Long> {
 
@@ -17,4 +21,21 @@ public interface PlayerSetRepository extends JpaRepository<PlayerSet, Long> {
 
 	/** 세트 하나의 선수 10명 */
 	List<PlayerSet> findByTeamSetMatchSetId(Long setId);
+
+	/**
+	 * 여러 경기의 세트별 POG를 한 번에 읽는다 (경기 목록·홈·경기 상세).
+	 * POG는 B3 계산 후에 채워지므로, 계산 전이면 그 세트는 결과에 없다.
+	 */
+	@Query("""
+			select new com.riftdata.domain.record.dto.SetPog(
+				s.match.id, s.setNumber, ts.team.id, p.id, p.nickname, c.id, c.name, ps.totalPoints)
+			from PlayerSet ps
+			join ps.teamSet ts
+			join ts.matchSet s
+			join ps.player p
+			join ps.champion c
+			where ps.pog = true and s.match.id in :matchIds
+			order by s.match.id, s.setNumber
+			""")
+	List<SetPog> findSetPogs(@Param("matchIds") Collection<Long> matchIds);
 }
