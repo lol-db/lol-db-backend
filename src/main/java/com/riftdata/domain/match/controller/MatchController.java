@@ -2,6 +2,7 @@ package com.riftdata.domain.match.controller;
 
 import com.riftdata.domain.match.dto.MatchStatus;
 import com.riftdata.domain.match.dto.response.MatchCalendarResponse;
+import com.riftdata.domain.match.dto.response.MatchDetailResponse;
 import com.riftdata.domain.match.dto.response.MatchSummaryResponse;
 import com.riftdata.domain.match.service.MatchService;
 import java.time.LocalDate;
@@ -10,6 +11,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,6 +32,12 @@ public class MatchController {
 			@RequestParam(required = false) Long teamId,
 			@RequestParam(required = false) MatchStatus status) {
 		return matchService.getMatches(from, to, stageId, teamId, status);
+	}
+
+	/** 경기(시리즈) 상세 (API-06, SCR-003) */
+	@GetMapping("/{matchId}")
+	public MatchDetailResponse getMatch(@PathVariable Long matchId) {
+		return matchService.getMatch(matchId);
 	}
 
 	/** 월별 경기 캘린더 (API-05, SCR-002). month는 "2026-04" 형식이다. */
