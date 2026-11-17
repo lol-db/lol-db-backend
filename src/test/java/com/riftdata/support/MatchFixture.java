@@ -5,6 +5,7 @@ import com.riftdata.domain.match.entity.LckMatch;
 import com.riftdata.domain.match.entity.MatchSet;
 import com.riftdata.domain.match.entity.Stage;
 import com.riftdata.domain.player.entity.Player;
+import com.riftdata.domain.record.entity.Ban;
 import com.riftdata.domain.record.entity.PlayerSet;
 import com.riftdata.domain.record.entity.TeamSet;
 import com.riftdata.domain.team.entity.Team;
@@ -27,6 +28,12 @@ import java.util.List;
  *   2세트 ZZB 승 · POG ZZB_MID 80점
  *   3세트 ZZA 승 · POG ZZA_MID 95점
  * 2026-04-26 20:00  ZZB vs ZZA (bo3, 예정, 세트 없음)
+ *
+ * 세트 공통: 30분(1800초), 홀수 세트는 ZZA 블루, 짝수 세트는 ZZB 블루
+ * 선수마다 2/1/3, 챔피언 피해 15,000, 골드 11,000, CS 200+10, 시야 30
+ * 시점 골드: 분 × 300 (이긴 팀은 +20), 25분 기록은 없음 → 골드 차는 10·15·20분만
+ * 팀 오브젝트: 이긴 팀 포탑 9·용 3·유충 4·바론 1·억제기 2, 진 팀 포탑 3·용 1·나머지 0
+ * 1세트만 밴: 팀마다 ZZBan 챔피언 2개
  * </pre>
  */
 public final class MatchFixture {
@@ -56,6 +63,10 @@ public final class MatchFixture {
 		for (int i = 0; i < 10; i++) {
 			champions.add(persist(em, Champion.builder().name("ZZChamp" + i).build()));
 		}
+		List<Champion> banChampions = new ArrayList<>();
+		for (int i = 0; i < 4; i++) {
+			banChampions.add(persist(em, Champion.builder().name("ZZBan" + i).build()));
+		}
 		Stage stage = persist(em, Stage.builder()
 				.name("ZZ Regular").stageOrder(98) // TINYINT 매핑이라 127 이하, EntityMappingTests는 99 사용
 				.startDate(LocalDate.of(2026, 4, 1)).endDate(LocalDate.of(2026, 6, 14)).regular(true).build());
@@ -79,10 +90,16 @@ public final class MatchFixture {
 			// 세트마다 블루·레드를 번갈아 맡긴다
 			Side sideA = setNumber % 2 == 1 ? Side.BLUE : Side.RED;
 			Side sideB = sideA == Side.BLUE ? Side.RED : Side.BLUE;
-			TeamSet tsA = persist(em, TeamSet.builder().matchSet(set).team(teamA).side(sideA).victory(aWins).build());
-			TeamSet tsB = persist(em, TeamSet.builder().matchSet(set).team(teamB).side(sideB).victory(!aWins).build());
-			lineup(em, tsA, playersA, champions.subList(0, 5), aWins ? pogPoints : null);
-			lineup(em, tsB, playersB, champions.subList(5, 10), aWins ? null : pogPoints);
+			TeamSet tsA = persist(em, teamSet(set, teamA, sideA, aWins));
+			TeamSet tsB = persist(em, teamSet(set, teamB, sideB, !aWins));
+			lineup(em, tsA, playersA, champions.subList(0, 5), aWins, aWins ? pogPoints : null);
+			lineup(em, tsB, playersB, champions.subList(5, 10), !aWins, aWins ? null : pogPoints);
+			if (setNumber == 1) {
+				for (int order = 1; order <= 2; order++) {
+					persist(em, Ban.builder().teamSet(tsA).banOrder(order).champion(banChampions.get(order - 1)).build());
+					persist(em, Ban.builder().teamSet(tsB).banOrder(order).champion(banChampions.get(order + 1)).build());
+				}
+			}
 		}
 
 		em.flush();
@@ -99,15 +116,25 @@ public final class MatchFixture {
 		return players;
 	}
 
+	private static TeamSet teamSet(MatchSet set, Team team, Side side, boolean win) {
+		return TeamSet.builder().matchSet(set).team(team).side(side).victory(win)
+				.towers(win ? 9 : 3).dragons(win ? 3 : 1).voidGrubs(win ? 4 : 0).barons(win ? 1 : 0)
+				.inhibitors(win ? 2 : 0)
+				.build();
+	}
+
 	/** 선수 5명의 세트 기록. pogPoints가 있으면 미드에게 POG를 준다. */
 	private static void lineup(EntityManager em, TeamSet teamSet, List<Player> players,
-			List<Champion> champions, Integer pogPoints) {
+			List<Champion> champions, boolean win, Integer pogPoints) {
+		int goldBonus = win ? 20 : 0;
 		for (int i = 0; i < players.size(); i++) {
 			Player player = players.get(i);
 			boolean pog = pogPoints != null && player.getPosition() == Position.MID;
 			persist(em, PlayerSet.builder()
 					.teamSet(teamSet).position(player.getPosition()).player(player).champion(champions.get(i))
 					.kills(2).deaths(1).assists(3).damageToChampions(15_000).totalGolds(11_000)
+					.minionKills(200).monsterKills(10).visionPoints(30)
+					.goldAt10(10 * 300 + goldBonus).goldAt15(15 * 300 + goldBonus).goldAt20(20 * 300 + goldBonus)
 					.totalPoints(pog ? pogPoints : 50).pog(pog)
 					.build());
 		}

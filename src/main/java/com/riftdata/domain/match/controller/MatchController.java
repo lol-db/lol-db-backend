@@ -4,7 +4,9 @@ import com.riftdata.domain.match.dto.MatchStatus;
 import com.riftdata.domain.match.dto.response.MatchCalendarResponse;
 import com.riftdata.domain.match.dto.response.MatchDetailResponse;
 import com.riftdata.domain.match.dto.response.MatchSummaryResponse;
+import com.riftdata.domain.match.dto.response.SetDetailResponse;
 import com.riftdata.domain.match.service.MatchService;
+import com.riftdata.domain.match.service.SetDetailService;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MatchController {
 
 	private final MatchService matchService;
+	private final SetDetailService setDetailService;
 
 	/** 경기 목록 (API-04, SCR-002). 명세서의 round 대신 stageId로 거른다. */
 	@GetMapping
@@ -38,6 +41,12 @@ public class MatchController {
 	@GetMapping("/{matchId}")
 	public MatchDetailResponse getMatch(@PathVariable Long matchId) {
 		return matchService.getMatch(matchId);
+	}
+
+	/** 세트 상세 (API-07, SCR-004) */
+	@GetMapping("/{matchId}/sets/{setNo}")
+	public SetDetailResponse getSet(@PathVariable Long matchId, @PathVariable Integer setNo) {
+		return setDetailService.getSet(matchId, setNo);
 	}
 
 	/** 월별 경기 캘린더 (API-05, SCR-002). month는 "2026-04" 형식이다. */

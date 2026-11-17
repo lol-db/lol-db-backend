@@ -40,6 +40,16 @@ public interface PlayerSetRepository extends JpaRepository<PlayerSet, Long> {
 			""")
 	List<SetPog> findSetPogs(@Param("matchIds") Collection<Long> matchIds);
 
+	/** 세트 상세 스코어보드 (API-07). 세트의 선수 10명을 선수·챔피언·팀세트기록과 함께 읽는다. */
+	@Query("""
+			select ps from PlayerSet ps
+			join fetch ps.teamSet ts
+			join fetch ps.player
+			join fetch ps.champion
+			where ts.matchSet.id = :setId
+			""")
+	List<PlayerSet> findScoreboardByMatchSetId(@Param("setId") Long setId);
+
 	/** 경기 하나의 모든 선수 세트 기록 (경기 상세의 시리즈 선수 평점) */
 	@Query("""
 			select new com.riftdata.domain.record.dto.PlayerSetPoints(
