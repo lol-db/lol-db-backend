@@ -43,8 +43,8 @@ class MatchDetailControllerTests {
 		Long a = data.teamA().getId();
 		Long b = data.teamB().getId();
 		given(teamStandingReader.findByTeamIds(anyCollection())).willReturn(Map.of(
-				a, new TeamStanding(a, 1, 6, 2),
-				b, new TeamStanding(b, 3, 5, 3)));
+				a, new TeamStanding(a, 1, 6, 2, 6),
+				b, new TeamStanding(b, 3, 5, 3, 2)));
 	}
 
 	@Test

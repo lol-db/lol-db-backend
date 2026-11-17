@@ -3,6 +3,8 @@ package com.riftdata.global.common;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -32,5 +34,12 @@ class RatingTests {
 		assertThat(KstTime.toOffset(LocalDateTime.of(2026, 4, 26, 17, 0)))
 				.hasToString("2026-04-26T17:00+09:00");
 		assertThat(KstTime.toOffset(null)).isNull();
+	}
+
+	@Test
+	void averagesRatingsSkippingNull() {
+		assertThat(Rating.average(Arrays.asList(8.4, null, 6.1, 8.9))).isEqualTo(7.8);
+		assertThat(Rating.average(Arrays.asList(null, null))).isNull();
+		assertThat(Rating.average(List.of())).isNull();
 	}
 }
