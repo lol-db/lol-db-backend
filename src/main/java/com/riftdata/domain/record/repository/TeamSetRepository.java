@@ -18,6 +18,10 @@ public interface TeamSetRepository extends JpaRepository<TeamSet, Long> {
 
 	List<TeamSet> findByTeamId(Long teamId);
 
+	/** 세트 상세 (API-07). 세트의 양 팀 기록을 팀과 함께 읽는다. */
+	@Query("select ts from TeamSet ts join fetch ts.team where ts.matchSet.id = :setId")
+	List<TeamSet> findWithTeamByMatchSetId(@Param("setId") Long setId);
+
 	/**
 	 * 여러 경기의 세트별 승리 팀을 한 번에 읽는다 (경기 목록·홈·경기 상세의 세트 스코어).
 	 * 경기마다 따로 조회하지 않도록(N+1) matchId 목록으로 받는다. 세트 기록이 없는 경기(예정)는 결과에 없다.
