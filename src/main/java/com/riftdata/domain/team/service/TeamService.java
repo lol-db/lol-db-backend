@@ -18,9 +18,11 @@ import com.riftdata.global.exception.ErrorCode;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -43,7 +45,7 @@ public class TeamService {
 
 	/**
 	 * 정규 시즌 순위표. 저장하지 않고 끝난 경기의 세트 기록으로 매번 계산한다.
-	 * 정렬: 경기 승수 → 세트 득실 → 세트 승수 → 팀코드. 승자승은 아직 반영하지 않는다.
+	 * 정렬: 경기 승수 → 세트 득실 → 승자승 → 세트 승수 → 팀코드 (화면 설계서 SCR-005).
 	 */
 	public List<StandingResponse> getStandings() {
 		Map<Long, StandingTally> tallies = new LinkedHashMap<>();
@@ -51,26 +53,55 @@ public class TeamService {
 			tallies.put(team.getId(), new StandingTally(team.getId(), team.getCode()));
 		}
 
-		finishedMatches().stream()
+		List<FinishedMatch> regularMatches = finishedMatches().stream()
 				.filter(match -> match.home().regular())
 				.sorted(Comparator.comparing(match -> match.home().matchTime()))
-				.forEach(match -> {
-					tallies.get(match.home().teamId()).add(match.home());
-					tallies.get(match.away().teamId()).add(match.away());
-				});
-
-		List<StandingTally> sorted = tallies.values().stream()
-				.sorted(Comparator.comparingInt(StandingTally::wins).reversed()
-						.thenComparing(Comparator.comparingInt(StandingTally::setDiff).reversed())
-						.thenComparing(Comparator.comparingInt((StandingTally r) -> r.setWins).reversed())
-						.thenComparing(r -> r.code))
 				.toList();
+		regularMatches.forEach(match -> {
+			tallies.get(match.home().teamId()).add(match.home());
+			tallies.get(match.away().teamId()).add(match.away());
+		});
+
+		// 경기 승수와 세트 득실이 같은 팀끼리 묶는다. 묶음 순서는 승수, 득실 내림차순.
+		Map<List<Integer>, List<StandingTally>> tiedGroups = tallies.values().stream()
+				.sorted(Comparator.comparingInt(StandingTally::wins).reversed()
+						.thenComparing(Comparator.comparingInt(StandingTally::setDiff).reversed()))
+				.collect(Collectors.groupingBy(r -> List.of(r.wins(), r.setDiff()),
+						LinkedHashMap::new, Collectors.toList()));
+
+		List<StandingTally> sorted = new ArrayList<>();
+		for (List<StandingTally> group : tiedGroups.values()) {
+			sorted.addAll(breakTie(group, regularMatches));
+		}
 
 		List<StandingResponse> standings = new ArrayList<>();
 		for (int i = 0; i < sorted.size(); i++) {
 			standings.add(sorted.get(i).toResponse(i + 1));
 		}
 		return standings;
+	}
+
+	/**
+	 * 승수·득실이 같은 팀들의 순서. 그 팀들끼리 치른 정규 시즌 경기의 승수(승자승)로 먼저 정한다.
+	 * 세 팀 이상이면 묶음 안의 맞대결만 센다. 그래도 같으면(순환 등) 세트 승수 → 팀코드 순이다.
+	 */
+	private static List<StandingTally> breakTie(List<StandingTally> group, List<FinishedMatch> regularMatches) {
+		if (group.size() == 1) {
+			return group;
+		}
+		Set<Long> ids = group.stream().map(r -> r.teamId).collect(Collectors.toSet());
+		Map<Long, Integer> headToHeadWins = new HashMap<>();
+		for (FinishedMatch match : regularMatches) {
+			if (ids.contains(match.home().teamId()) && ids.contains(match.away().teamId())) {
+				MatchTeamResult winner = match.home().won() ? match.home() : match.away();
+				headToHeadWins.merge(winner.teamId(), 1, Integer::sum);
+			}
+		}
+		return group.stream()
+				.sorted(Comparator.comparingInt((StandingTally r) -> headToHeadWins.getOrDefault(r.teamId, 0)).reversed()
+						.thenComparing(Comparator.comparingInt((StandingTally r) -> r.setWins).reversed())
+						.thenComparing(r -> r.code))
+				.toList();
 	}
 
 	public TeamDetailResponse getTeam(Long teamId) {

@@ -23,7 +23,9 @@ import com.riftdata.domain.record.repository.PlayerSetRepository;
 import com.riftdata.domain.record.repository.TeamSetRepository;
 import com.riftdata.domain.team.entity.Team;
 import com.riftdata.domain.team.dto.TeamStanding;
+import com.riftdata.domain.team.dto.StandingResponse;
 import com.riftdata.domain.team.repository.TeamRepository;
+import com.riftdata.domain.team.service.TeamService;
 import com.riftdata.domain.team.service.TeamStandingReader;
 import com.riftdata.global.common.Position;
 import com.riftdata.global.common.Side;
@@ -68,10 +70,12 @@ class TeamControllerTests {
 	@Autowired TeamSetRepository teamSetRepository;
 	@Autowired PlayerSetRepository playerSetRepository;
 	@Autowired TeamStandingReader teamStandingReader;
+	@Autowired TeamService teamService;
 
 	private Team tsa;
 	private Team tsb;
 	private Team tsc;
+	private Stage regular;
 	private LckMatch m1;
 	private int gameSeq;
 
@@ -80,7 +84,7 @@ class TeamControllerTests {
 		tsa = teamRepository.save(Team.builder().code("TSA").build());
 		tsb = teamRepository.save(Team.builder().code("TSB").build());
 		tsc = teamRepository.save(Team.builder().code("TSC").build());
-		Stage regular = stageRepository.save(stage("Test Regular", 98, true));
+		regular = stageRepository.save(stage("Test Regular", 98, true));
 		Stage playoff = stageRepository.save(stage("Test Playoff", 99, false));
 
 		m1 = match(regular, 3, tsa, tsb, 1);
@@ -146,6 +150,58 @@ class TeamControllerTests {
 				.andExpect(jsonPath("$[?(@.code == 'TSB')].setDiff").value(1))
 				.andExpect(jsonPath("$[?(@.code == 'TSC')].losses").value(2))
 				.andExpect(jsonPath("$[?(@.code == 'TSC')].setDiff").value(-4));
+	}
+
+	@Test
+	@DisplayName("두 팀이 승수·세트 득실까지 같으면 승자승으로 정한다")
+	void headToHeadBreaksTwoWayTie() {
+		// THA·THB 모두 1승 1패, 세트 3-3. 팀코드로는 THA가 앞이지만 맞대결은 THB가 이겼다.
+		Team tha = teamRepository.save(Team.builder().code("THA").build());
+		Team thb = teamRepository.save(Team.builder().code("THB").build());
+		Team thy = teamRepository.save(Team.builder().code("THY").build());
+		Team thz = teamRepository.save(Team.builder().code("THZ").build());
+		playBo3(thb, tha, 11);
+		playBo3(tha, thy, 12);
+		playBo3(thz, thb, 13);
+
+		List<String> order = codesInOrder("THA", "THB");
+		assertThat(order).containsExactly("THB", "THA");
+	}
+
+	@Test
+	@DisplayName("세 팀이 서로 한 번씩 이긴 순환 동률은 세트 승수 → 팀코드로 정한다")
+	void circularTieFallsBackToCode() {
+		// TCA > TCB > TCC > TCA, 세 팀 모두 1승 1패, 세트 3-3, 맞대결 1승씩
+		Team tca = teamRepository.save(Team.builder().code("TCA").build());
+		Team tcb = teamRepository.save(Team.builder().code("TCB").build());
+		Team tcc = teamRepository.save(Team.builder().code("TCC").build());
+		playBo3(tcc, tca, 14);
+		playBo3(tcb, tcc, 15);
+		playBo3(tca, tcb, 16);
+
+		assertThat(codesInOrder("TCA", "TCB", "TCC")).containsExactly("TCA", "TCB", "TCC");
+	}
+
+	@Test
+	@DisplayName("세 팀 동률이면 그 팀들끼리의 맞대결 승수만 센다")
+	void headToHeadAmongThreeTeams() {
+		// TTA·TTB·TTC 모두 2승 2패, 세트 4-4. 셋끼리는 TTC 2승, TTB 1승, TTA 0승
+		Team tta = teamRepository.save(Team.builder().code("TTA").build());
+		Team ttb = teamRepository.save(Team.builder().code("TTB").build());
+		Team ttc = teamRepository.save(Team.builder().code("TTC").build());
+		Team tto = teamRepository.save(Team.builder().code("TTO").build());
+		playBo3(ttc, tta, 17);
+		playBo3(ttc, ttb, 18);
+		playBo3(ttb, tta, 19);
+		// 묶음 밖 경기로 승패를 2승 2패로 맞춘다
+		playBo3(tta, tto, 20);
+		playBo3(tta, tto, 21);
+		playBo3(ttb, tto, 22);
+		playBo3(tto, ttb, 23);
+		playBo3(tto, ttc, 24);
+		playBo3(tto, ttc, 25);
+
+		assertThat(codesInOrder("TTA", "TTB", "TTC")).containsExactly("TTC", "TTB", "TTA");
 	}
 
 	@Test
@@ -222,6 +278,23 @@ class TeamControllerTests {
 	private Stage stage(String name, int order, boolean regular) {
 		return Stage.builder().name(name).stageOrder(order)
 				.startDate(LocalDate.of(2026, 1, 1)).endDate(LocalDate.of(2026, 3, 1)).regular(regular).build();
+	}
+
+	/** 정규 시즌 Bo3 한 경기를 2-1로 치른다. */
+	private void playBo3(Team winner, Team loser, int day) {
+		LckMatch match = match(regular, 3, winner, loser, day);
+		set(match, 1, winner, loser);
+		set(match, 2, loser, winner);
+		set(match, 3, winner, loser);
+	}
+
+	/** 순위표에서 주어진 팀코드만 순위 순으로 뽑는다. */
+	private List<String> codesInOrder(String... codes) {
+		List<String> wanted = List.of(codes);
+		return teamService.getStandings().stream()
+				.map(StandingResponse::code)
+				.filter(wanted::contains)
+				.toList();
 	}
 
 	private LckMatch match(Stage stage, int bestOf, Team team1, Team team2, int day) {

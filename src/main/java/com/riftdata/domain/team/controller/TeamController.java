@@ -28,7 +28,7 @@ public class TeamController {
 	}
 
 	@Operation(summary = "정규 시즌 순위표",
-			description = "끝난 정규 시즌 경기로 계산한다. 경기 승수 → 세트 득실 → 세트 승수 순 (승자승 미반영)")
+			description = "끝난 정규 시즌 경기로 계산한다. 경기 승수 → 세트 득실 → 승자승 → 세트 승수 → 팀코드 순")
 	@GetMapping("/standings")
 	public List<StandingResponse> getStandings() {
 		return teamService.getStandings();
