@@ -3,6 +3,7 @@ package com.riftdata.domain.team.service;
 import com.riftdata.domain.team.dto.StandingResponse;
 import com.riftdata.domain.team.dto.TeamStanding;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -27,7 +28,15 @@ public class TeamStandingService implements TeamStandingReader {
 				.collect(Collectors.toMap(StandingResponse::teamId, TeamStandingService::toStanding));
 	}
 
+	@Override
+	public List<TeamStanding> findTop(int limit) {
+		return teamService.getStandings().stream()
+				.limit(limit)
+				.map(TeamStandingService::toStanding)
+				.toList();
+	}
+
 	private static TeamStanding toStanding(StandingResponse row) {
-		return new TeamStanding(row.teamId(), row.rank(), row.wins(), row.losses());
+		return new TeamStanding(row.teamId(), row.rank(), row.wins(), row.losses(), row.setDiff());
 	}
 }
