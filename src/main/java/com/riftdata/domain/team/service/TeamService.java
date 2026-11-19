@@ -2,19 +2,25 @@ package com.riftdata.domain.team.service;
 
 import com.riftdata.domain.team.dto.StandingResponse;
 import com.riftdata.domain.team.dto.TeamDetailResponse;
+import com.riftdata.domain.team.dto.TeamDetailResponse.MainChampion;
 import com.riftdata.domain.team.dto.TeamDetailResponse.RecentMatch;
 import com.riftdata.domain.team.dto.TeamDetailResponse.RosterPlayer;
+import com.riftdata.domain.team.dto.TeamDetailResponse.StatRanks;
 import com.riftdata.domain.team.dto.TeamDetailResponse.TeamStats;
 import com.riftdata.domain.team.dto.TeamResponse;
 import com.riftdata.domain.team.entity.Team;
 import com.riftdata.domain.team.repository.MatchTeamResult;
 import com.riftdata.domain.team.repository.RosterRow;
+import com.riftdata.domain.team.repository.RosterSetRow;
 import com.riftdata.domain.team.repository.SetGoldAt15;
 import com.riftdata.domain.team.repository.TeamRepository;
 import com.riftdata.domain.team.repository.TeamSetSummary;
+import com.riftdata.global.common.Rating;
 import com.riftdata.global.common.Side;
 import com.riftdata.global.exception.BusinessException;
 import com.riftdata.global.exception.ErrorCode;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -22,6 +28,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -118,54 +126,130 @@ public class TeamService {
 	}
 
 	private List<RosterPlayer> roster(Long teamId) {
+		Map<Long, List<RosterSetRow>> setsByPlayer = teamRepository.findRosterSets(teamId).stream()
+				.collect(Collectors.groupingBy(RosterSetRow::playerId));
 		return teamRepository.findRoster(teamId).stream()
 				.sorted(Comparator.comparing((RosterRow row) -> row.player().getPosition())
 						.thenComparing(row -> row.player().getNickname()))
-				.map(row -> new RosterPlayer(
-						row.player().getId(),
-						row.player().getNickname(),
-						row.player().getName(),
-						row.player().getPosition(),
-						row.season() == null ? null : row.season().getSets(),
-						row.season() == null ? null : row.season().getTotalPoints()))
+				.map(row -> rosterPlayer(row, setsByPlayer.getOrDefault(row.player().getId(), List.of())))
 				.toList();
 	}
 
+	private static RosterPlayer rosterPlayer(RosterRow row, List<RosterSetRow> sets) {
+		int kills = sets.stream().mapToInt(RosterSetRow::kills).sum();
+		int deaths = sets.stream().mapToInt(RosterSetRow::deaths).sum();
+		int assists = sets.stream().mapToInt(RosterSetRow::assists).sum();
+		Double kda = sets.isEmpty() ? null : round((kills + assists) / (double) Math.max(deaths, 1), 2);
+		OptionalDouble avgRating = sets.stream()
+				.map(set -> Rating.fromPoints(set.totalPoints()))
+				.filter(Objects::nonNull)
+				.mapToDouble(Double::doubleValue)
+				.average();
+		return new RosterPlayer(
+				row.player().getId(),
+				row.player().getNickname(),
+				row.player().getName(),
+				row.player().getPosition(),
+				row.season() == null ? null : row.season().getSets(),
+				row.season() == null ? null : row.season().getTotalPoints(),
+				sets.size(),
+				avgRating.isPresent() ? round(avgRating.getAsDouble(), 1) : null,
+				kills, deaths, assists, kda,
+				mainChampion(sets));
+	}
+
+	/** 가장 많이 쓴 챔피언. 세트 수가 같으면 이름순으로 앞선 챔피언. */
+	private static MainChampion mainChampion(List<RosterSetRow> sets) {
+		return sets.stream()
+				.collect(Collectors.groupingBy(RosterSetRow::championId))
+				.values().stream()
+				.map(picks -> new MainChampion(picks.get(0).championId(), picks.get(0).championName(), picks.size()))
+				.min(Comparator.comparingInt(MainChampion::sets).reversed().thenComparing(MainChampion::name))
+				.orElse(null);
+	}
+
+	/** 팀 지표에 리그 내 순위를 붙인다. 세트 기록이 없는 팀은 지표·순위가 모두 null이다. */
 	private TeamStats stats(Long teamId) {
-		List<TeamSetSummary> sets = teamRepository.findTeamSetSummaries(teamId);
+		Map<Long, TeamStats> league = leagueStats();
+		TeamStats own = league.get(teamId);
+		if (own == null) {
+			return new TeamStats(0, null, null, null, null, null, null, null,
+					new StatRanks(league.size(), null, null, null, null, null, null, null));
+		}
+		StatRanks ranks = new StatRanks(league.size(),
+				rankOf(teamId, league, TeamStats::goldDiffAt15, true),
+				rankOf(teamId, league, TeamStats::firstDragonRate, true),
+				rankOf(teamId, league, TeamStats::firstTowerRate, true),
+				rankOf(teamId, league, TeamStats::firstBaronRate, true),
+				rankOf(teamId, league, TeamStats::avgPlaySeconds, false),
+				rankOf(teamId, league, TeamStats::blueWinRate, true),
+				rankOf(teamId, league, TeamStats::redWinRate, true));
+		return new TeamStats(own.sets(), own.goldDiffAt15(), own.firstDragonRate(), own.firstTowerRate(),
+				own.firstBaronRate(), own.avgPlaySeconds(), own.blueWinRate(), own.redWinRate(), ranks);
+	}
+
+	/** 세트 기록이 있는 모든 팀의 지표 (순위 없이). 쿼리 두 번으로 리그 전체를 계산한다. */
+	private Map<Long, TeamStats> leagueStats() {
+		Map<Long, List<Long>> goldDiffs = goldDiffsAt15();
+		Map<Long, TeamStats> league = new HashMap<>();
+		teamRepository.findAllTeamSetSummaries().stream()
+				.collect(Collectors.groupingBy(TeamSetSummary::teamId))
+				.forEach((teamId, sets) -> league.put(teamId, teamStats(sets, goldDiffs.get(teamId))));
+		return league;
+	}
+
+	private static TeamStats teamStats(List<TeamSetSummary> sets, List<Long> goldDiffs) {
 		List<TeamSetSummary> blue = sets.stream().filter(s -> s.side() == Side.BLUE).toList();
 		List<TeamSetSummary> red = sets.stream().filter(s -> s.side() == Side.RED).toList();
-
-		Integer avgPlaySeconds = sets.isEmpty() ? null
-				: (int) Math.round(sets.stream().mapToInt(s -> s.playTime().toSecondOfDay()).average().orElseThrow());
-
+		Integer avgPlaySeconds = (int) Math.round(
+				sets.stream().mapToInt(s -> s.playTime().toSecondOfDay()).average().orElseThrow());
+		Integer goldDiffAt15 = goldDiffs == null ? null
+				: (int) Math.round(goldDiffs.stream().mapToLong(Long::longValue).average().orElseThrow());
 		return new TeamStats(
 				sets.size(),
-				goldDiffAt15(teamId),
+				goldDiffAt15,
 				rate(sets, TeamSetSummary::firstDragon),
 				rate(sets, TeamSetSummary::firstTower),
 				rate(sets, TeamSetSummary::firstBaron),
 				avgPlaySeconds,
 				rate(blue, TeamSetSummary::victory),
-				rate(red, TeamSetSummary::victory));
+				rate(red, TeamSetSummary::victory),
+				null);
 	}
 
-	/** 양 팀 5명 모두 15분 골드가 있는 세트만 평균한다. 그런 세트가 없으면 null. */
-	private Integer goldDiffAt15(Long teamId) {
-		Map<Long, List<SetGoldAt15>> bySet = teamRepository.findGoldAt15InTeamSets(teamId).stream()
-				.collect(Collectors.groupingBy(SetGoldAt15::setId));
+	/** 팀별 세트당 15분 골드 차 목록. 양 팀 5명 모두 15분 골드가 있는 세트만 쓴다. */
+	private Map<Long, List<Long>> goldDiffsAt15() {
+		Map<Long, List<Long>> diffs = new HashMap<>();
+		teamRepository.findAllGoldAt15().stream()
+				.collect(Collectors.groupingBy(SetGoldAt15::setId))
+				.values().stream()
+				.filter(rows -> rows.size() == 2 && rows.stream().allMatch(r -> r.playersWithData() == 5))
+				.forEach(rows -> {
+					SetGoldAt15 a = rows.get(0);
+					SetGoldAt15 b = rows.get(1);
+					diffs.computeIfAbsent(a.teamId(), k -> new ArrayList<>()).add(a.goldAt15() - b.goldAt15());
+					diffs.computeIfAbsent(b.teamId(), k -> new ArrayList<>()).add(b.goldAt15() - a.goldAt15());
+				});
+		return diffs;
+	}
 
-		List<Long> diffs = new ArrayList<>();
-		for (List<SetGoldAt15> rows : bySet.values()) {
-			if (rows.size() != 2 || rows.stream().anyMatch(r -> r.playersWithData() != 5)) {
-				continue;
-			}
-			SetGoldAt15 own = rows.get(0).teamId().equals(teamId) ? rows.get(0) : rows.get(1);
-			SetGoldAt15 opponent = own == rows.get(0) ? rows.get(1) : rows.get(0);
-			diffs.add(own.goldAt15() - opponent.goldAt15());
+	/** 1 + 이 팀보다 좋은 값을 가진 팀 수. 값이 없으면 null. */
+	private static Integer rankOf(Long teamId, Map<Long, TeamStats> league,
+			Function<TeamStats, Integer> metric, boolean higherIsBetter) {
+		Integer own = metric.apply(league.get(teamId));
+		if (own == null) {
+			return null;
 		}
-		return diffs.isEmpty() ? null
-				: (int) Math.round(diffs.stream().mapToLong(Long::longValue).average().orElseThrow());
+		long better = league.values().stream()
+				.map(metric)
+				.filter(Objects::nonNull)
+				.filter(value -> higherIsBetter ? value > own : value < own)
+				.count();
+		return (int) better + 1;
+	}
+
+	private static double round(double value, int scale) {
+		return BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP).doubleValue();
 	}
 
 	private List<RecentMatch> recentMatches(Long teamId) {
