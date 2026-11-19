@@ -3,6 +3,7 @@ package com.riftdata.domain.match.repository;
 import com.riftdata.domain.match.entity.LckMatch;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -33,6 +34,16 @@ public interface LckMatchRepository extends JpaRepository<LckMatch, Long> {
 			@Param("to") LocalDateTime to,
 			@Param("stageId") Long stageId,
 			@Param("teamId") Long teamId);
+
+	/** 경기 상세 (API-06). 팀·스테이지를 함께 읽는다. */
+	@Query("""
+			select m from LckMatch m
+			join fetch m.team1
+			join fetch m.team2
+			join fetch m.stage
+			where m.id = :matchId
+			""")
+	Optional<LckMatch> findDetailById(@Param("matchId") Long matchId);
 
 	/** 월별 캘린더 (API-05). [from, to) 구간 경기의 시작 일시만 읽는다. */
 	@Query("""

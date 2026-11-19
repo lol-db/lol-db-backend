@@ -1,5 +1,6 @@
 package com.riftdata.domain.record.repository;
 
+import com.riftdata.domain.record.dto.PlayerSetPoints;
 import com.riftdata.domain.record.dto.SetPog;
 import com.riftdata.domain.record.entity.PlayerSet;
 import java.util.Collection;
@@ -38,4 +39,17 @@ public interface PlayerSetRepository extends JpaRepository<PlayerSet, Long> {
 			order by s.match.id, s.setNumber
 			""")
 	List<SetPog> findSetPogs(@Param("matchIds") Collection<Long> matchIds);
+
+	/** 경기 하나의 모든 선수 세트 기록 (경기 상세의 시리즈 선수 평점) */
+	@Query("""
+			select new com.riftdata.domain.record.dto.PlayerSetPoints(
+				s.setNumber, ts.team.id, p.id, p.nickname, ps.position, ps.totalPoints)
+			from PlayerSet ps
+			join ps.teamSet ts
+			join ts.matchSet s
+			join ps.player p
+			where s.match.id = :matchId
+			order by s.setNumber
+			""")
+	List<PlayerSetPoints> findPlayerSetPoints(@Param("matchId") Long matchId);
 }
