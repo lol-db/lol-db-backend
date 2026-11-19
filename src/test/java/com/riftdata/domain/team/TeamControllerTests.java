@@ -24,6 +24,7 @@ import com.riftdata.domain.record.repository.TeamSetRepository;
 import com.riftdata.domain.team.entity.Team;
 import com.riftdata.domain.team.dto.TeamStanding;
 import com.riftdata.domain.team.dto.StandingResponse;
+import com.riftdata.domain.team.dto.TeamDetailResponse.StatRanks;
 import com.riftdata.domain.team.repository.TeamRepository;
 import com.riftdata.domain.team.service.TeamService;
 import com.riftdata.domain.team.service.TeamStandingReader;
@@ -93,8 +94,8 @@ class TeamControllerTests {
 		set(m1, 3, tsa, tsb);
 
 		LckMatch m2 = match(regular, 3, tsa, tsc, 2);
-		set(m2, 1, tsa, tsc);
-		set(m2, 2, tsa, tsc);
+		TeamSet[] m2Set1 = set(m2, 1, tsa, tsc);
+		TeamSet[] m2Set2 = set(m2, 2, tsa, tsc);
 
 		LckMatch m3 = match(regular, 3, tsb, tsc, 3);
 		set(m3, 1, tsb, tsc);
@@ -109,7 +110,10 @@ class TeamControllerTests {
 		set(m5, 3, tsc, tsa);
 
 		// 15분 골드는 M1 1세트에만 넣는다: TSA 5 × 3,000 vs TSB 5 × 2,800 → +1,000
+		// TSA 선수 i의 M1 1세트: 킬 i, 데스 1(SUP만 0), 어시스트 2, 총 점수 50 + 10i
+		// TSA MID(i=2)는 M2 1·2세트를 OtherChamp로 더 뛴다 → 대표 챔피언 OtherChamp
 		Champion champion = championRepository.save(Champion.builder().name("TestChamp").build());
+		Champion other = championRepository.save(Champion.builder().name("OtherChamp").build());
 		Position[] positions = Position.values();
 		for (int i = 0; i < positions.length; i++) {
 			Player a = playerRepository.save(Player.builder()
@@ -117,12 +121,17 @@ class TeamControllerTests {
 			Player b = playerRepository.save(Player.builder()
 					.team(tsb).nickname("TsbP" + i).position(positions[i]).build());
 			playerSetRepository.save(PlayerSet.builder().teamSet(m1Set1[0]).position(positions[i])
-					.player(a).champion(champion).goldAt15(3000).build());
+					.player(a).champion(champion).goldAt15(3000)
+					.kills(i).deaths(i == 4 ? 0 : 1).assists(2).totalPoints(50 + 10 * i).build());
 			playerSetRepository.save(PlayerSet.builder().teamSet(m1Set1[1]).position(positions[i])
 					.player(b).champion(champion).goldAt15(2800).build());
 			if (i == 2) {
 				seasonRepository.save(PlayerSeason.builder().player(a).sets(12).totalPoints(81)
 						.calculatedAt(LocalDateTime.of(2026, 1, 31, 0, 0)).build());
+				playerSetRepository.save(PlayerSet.builder().teamSet(m2Set1[0]).position(positions[i])
+						.player(a).champion(other).kills(3).deaths(0).assists(4).totalPoints(90).build());
+				playerSetRepository.save(PlayerSet.builder().teamSet(m2Set2[0]).position(positions[i])
+						.player(a).champion(other).kills(1).deaths(2).assists(0).build());
 			}
 		}
 	}
@@ -251,6 +260,65 @@ class TeamControllerTests {
 				.andExpect(jsonPath("$.recentMatches[0].win").value(false))
 				.andExpect(jsonPath("$.recentMatches[2].opponentCode").value("TSB"))
 				.andExpect(jsonPath("$.recentMatches[2].win").value(true));
+	}
+
+	@Test
+	@DisplayName("로스터에 평균 평점, KDA, 대표 챔피언이 들어 있다")
+	void rosterRecords() throws Exception {
+		mockMvc.perform(get("/api/v1/teams/{id}", tsa.getId()))
+				.andExpect(status().isOk())
+				// TOP: 1세트, 0/1/2, 50점 → 평점 6.0, KDA 2.0
+				.andExpect(jsonPath("$.roster[0].recordSets").value(1))
+				.andExpect(jsonPath("$.roster[0].avgRating").value(6.0))
+				.andExpect(jsonPath("$.roster[0].kda").value(2.0))
+				.andExpect(jsonPath("$.roster[0].mainChampion.name").value("TestChamp"))
+				// MID: 3세트, 6/3/6 → KDA 4.0. 평점은 70점(7.6)·90점(9.2)만 평균 → 8.4 (점수 없는 세트 제외)
+				.andExpect(jsonPath("$.roster[2].recordSets").value(3))
+				.andExpect(jsonPath("$.roster[2].kills").value(6))
+				.andExpect(jsonPath("$.roster[2].deaths").value(3))
+				.andExpect(jsonPath("$.roster[2].assists").value(6))
+				.andExpect(jsonPath("$.roster[2].kda").value(4.0))
+				.andExpect(jsonPath("$.roster[2].avgRating").value(8.4))
+				.andExpect(jsonPath("$.roster[2].mainChampion.name").value("OtherChamp"))
+				.andExpect(jsonPath("$.roster[2].mainChampion.sets").value(2))
+				// SUP: 데스 0이면 KDA = 킬 + 어시스트 = 6
+				.andExpect(jsonPath("$.roster[4].kda").value(6.0));
+	}
+
+	@Test
+	@DisplayName("세트 기록이 없는 선수는 KDA·평점·대표 챔피언이 null이다")
+	void rosterPlayerWithoutSets() throws Exception {
+		playerRepository.save(Player.builder()
+				.team(tsa).nickname("TsaBench").position(Position.TOP).build());
+		mockMvc.perform(get("/api/v1/teams/{id}", tsa.getId()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.roster[?(@.nickname == 'TsaBench')].recordSets").value(0))
+				.andExpect(jsonPath("$.roster[?(@.nickname == 'TsaBench')].kda").value(org.hamcrest.Matchers.contains((Object) null)))
+				.andExpect(jsonPath("$.roster[?(@.nickname == 'TsaBench')].avgRating").value(org.hamcrest.Matchers.contains((Object) null)))
+				.andExpect(jsonPath("$.roster[?(@.nickname == 'TsaBench')].mainChampion").value(org.hamcrest.Matchers.contains((Object) null)));
+	}
+
+	@Test
+	@DisplayName("팀 지표마다 리그 내 순위가 붙는다")
+	void statRanks() {
+		StatRanks a = teamService.getTeam(tsa.getId()).stats().ranks();
+		StatRanks b = teamService.getTeam(tsb.getId()).stats().ranks();
+		assertThat(a.teams()).isGreaterThanOrEqualTo(3);
+		// 15분 골드 차: TSA +1,000, TSB −1,000
+		assertThat(a.goldDiffAt15()).isLessThan(b.goldDiffAt15());
+		// 블루 승률 100%는 항상 1위 (공동 포함)
+		assertThat(a.blueWinRate()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("세트 기록이 없는 팀은 지표 순위가 모두 null이다")
+	void statRanksWithoutSets() {
+		Team empty = teamRepository.save(Team.builder().code("TSD").build());
+		StatRanks ranks = teamService.getTeam(empty.getId()).stats().ranks();
+		assertThat(ranks.goldDiffAt15()).isNull();
+		assertThat(ranks.firstDragonRate()).isNull();
+		assertThat(ranks.avgPlaySeconds()).isNull();
+		assertThat(ranks.teams()).isGreaterThanOrEqualTo(3);
 	}
 
 	@Test
