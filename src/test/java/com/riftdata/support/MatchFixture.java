@@ -55,6 +55,11 @@ public final class MatchFixture {
 	}
 
 	public static Data create(EntityManager em) {
+		return create(em, MATCH_DAY);
+	}
+
+	/** 같은 데이터를 다른 날짜에 넣는다. 실데이터와 날짜가 겹치면 안 되는 테스트(홈 등)에서 쓴다. */
+	public static Data create(EntityManager em, LocalDate day) {
 		Team teamA = persist(em, Team.builder().code("ZZA").build());
 		Team teamB = persist(em, Team.builder().code("ZZB").build());
 		List<Player> playersA = roster(em, teamA);
@@ -72,9 +77,9 @@ public final class MatchFixture {
 				.startDate(LocalDate.of(2026, 4, 1)).endDate(LocalDate.of(2026, 6, 14)).regular(true).build());
 
 		LckMatch finished = persist(em, LckMatch.builder()
-				.matchTime(MATCH_DAY.atTime(17, 0)).sets(3).team1(teamA).team2(teamB).stage(stage).build());
+				.matchTime(day.atTime(17, 0)).sets(3).team1(teamA).team2(teamB).stage(stage).build());
 		LckMatch scheduled = persist(em, LckMatch.builder()
-				.matchTime(MATCH_DAY.atTime(20, 0)).sets(3).team1(teamB).team2(teamA).stage(stage).build());
+				.matchTime(day.atTime(20, 0)).sets(3).team1(teamB).team2(teamA).stage(stage).build());
 
 		// 세트 번호, 이긴 팀이 A인지, POG 총 점수
 		Object[][] results = {{1, true, 88}, {2, false, 80}, {3, true, 95}};

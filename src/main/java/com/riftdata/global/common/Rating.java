@@ -2,6 +2,9 @@ package com.riftdata.global.common;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Collection;
+import java.util.Objects;
+import java.util.OptionalDouble;
 
 /**
  * 세트 평점. DB에는 선수세트지표 총 점수(player_set.total_points, 0~100)만 저장하고,
@@ -29,5 +32,14 @@ public final class Rating {
 		double rating = BASE + (totalPoints - MID_POINTS) / POINTS_PER_RATING;
 		double clamped = Math.clamp(rating, 0.0, 10.0);
 		return BigDecimal.valueOf(clamped).setScale(1, RoundingMode.HALF_UP).doubleValue();
+	}
+
+	/** 평점들의 평균, 소수 1자리 반올림. null은 빼고, 값이 하나도 없으면 null */
+	public static Double average(Collection<Double> ratings) {
+		OptionalDouble avg = ratings.stream().filter(Objects::nonNull).mapToDouble(Double::doubleValue).average();
+		if (avg.isEmpty()) {
+			return null;
+		}
+		return BigDecimal.valueOf(avg.getAsDouble()).setScale(1, RoundingMode.HALF_UP).doubleValue();
 	}
 }

@@ -20,10 +20,9 @@ import com.riftdata.domain.team.dto.TeamStanding;
 import com.riftdata.domain.team.entity.Team;
 import com.riftdata.domain.team.service.TeamStandingReader;
 import com.riftdata.global.common.KstTime;
+import com.riftdata.global.common.Rating;
 import com.riftdata.global.exception.BusinessException;
 import com.riftdata.global.exception.ErrorCode;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,7 +34,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -227,17 +225,7 @@ public class MatchService {
 		PlayerSetPoints first = records.getFirst();
 		return new MatchDetailResponse.PlayerRating(
 				first.playerId(), first.nickname(), first.position(),
-				Arrays.asList(setRatings), average(Arrays.asList(setRatings)));
-	}
-
-	/** null이 아닌 평점의 평균, 소수 1자리 반올림. 값이 하나도 없으면 null */
-	private static Double average(List<Double> ratings) {
-		List<Double> values = ratings.stream().filter(Objects::nonNull).toList();
-		if (values.isEmpty()) {
-			return null;
-		}
-		double avg = values.stream().mapToDouble(Double::doubleValue).average().orElseThrow();
-		return BigDecimal.valueOf(avg).setScale(1, RoundingMode.HALF_UP).doubleValue();
+				Arrays.asList(setRatings), Rating.average(Arrays.asList(setRatings)));
 	}
 
 	/**
