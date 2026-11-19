@@ -1,5 +1,6 @@
 package com.riftdata.domain.team;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -21,13 +22,17 @@ import com.riftdata.domain.record.entity.TeamSet;
 import com.riftdata.domain.record.repository.PlayerSetRepository;
 import com.riftdata.domain.record.repository.TeamSetRepository;
 import com.riftdata.domain.team.entity.Team;
+import com.riftdata.domain.team.dto.TeamStanding;
 import com.riftdata.domain.team.repository.TeamRepository;
+import com.riftdata.domain.team.service.TeamStandingReader;
 import com.riftdata.global.common.Position;
 import com.riftdata.global.common.Side;
 import com.riftdata.global.exception.ErrorCode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,10 +67,12 @@ class TeamControllerTests {
 	@Autowired MatchSetRepository setRepository;
 	@Autowired TeamSetRepository teamSetRepository;
 	@Autowired PlayerSetRepository playerSetRepository;
+	@Autowired TeamStandingReader teamStandingReader;
 
 	private Team tsa;
 	private Team tsb;
 	private Team tsc;
+	private LckMatch m1;
 	private int gameSeq;
 
 	@BeforeEach
@@ -76,7 +83,7 @@ class TeamControllerTests {
 		Stage regular = stageRepository.save(stage("Test Regular", 98, true));
 		Stage playoff = stageRepository.save(stage("Test Playoff", 99, false));
 
-		LckMatch m1 = match(regular, 3, tsa, tsb, 1);
+		m1 = match(regular, 3, tsa, tsb, 1);
 		TeamSet[] m1Set1 = set(m1, 1, tsa, tsb);
 		set(m1, 2, tsb, tsa);
 		set(m1, 3, tsa, tsb);
@@ -139,6 +146,25 @@ class TeamControllerTests {
 				.andExpect(jsonPath("$[?(@.code == 'TSB')].setDiff").value(1))
 				.andExpect(jsonPath("$[?(@.code == 'TSC')].losses").value(2))
 				.andExpect(jsonPath("$[?(@.code == 'TSC')].setDiff").value(-4));
+	}
+
+	@Test
+	@DisplayName("다른 도메인용 순위(TeamStandingReader)는 순위표와 같은 값이다")
+	void standingReaderMatchesStandings() {
+		Map<Long, TeamStanding> byId = teamStandingReader.findByTeamIds(List.of(tsa.getId(), tsb.getId()));
+		assertThat(byId).containsOnlyKeys(tsa.getId(), tsb.getId());
+		TeamStanding a = byId.get(tsa.getId());
+		TeamStanding b = byId.get(tsb.getId());
+		assertThat(List.of(a.wins(), a.losses())).containsExactly(2, 0);
+		assertThat(List.of(b.wins(), b.losses())).containsExactly(1, 1);
+		assertThat(a.rank()).isLessThan(b.rank());
+	}
+
+	@Test
+	@DisplayName("경기 상세가 팀 순위를 읽어 200으로 응답한다")
+	void matchDetailUsesStandingReader() throws Exception {
+		mockMvc.perform(get("/api/v1/matches/{id}", m1.getId()))
+				.andExpect(status().isOk());
 	}
 
 	@Test
