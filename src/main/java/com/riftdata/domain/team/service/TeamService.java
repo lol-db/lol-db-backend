@@ -1,12 +1,14 @@
 package com.riftdata.domain.team.service;
 
+import com.riftdata.domain.team.config.SeasonSettings;
 import com.riftdata.domain.team.dto.StandingResponse;
+import com.riftdata.domain.team.dto.StandingsResponse;
 import com.riftdata.domain.team.dto.TeamDetailResponse;
 import com.riftdata.domain.team.dto.TeamDetailResponse.MainChampion;
+import com.riftdata.domain.team.dto.TeamDetailResponse.Opponent;
 import com.riftdata.domain.team.dto.TeamDetailResponse.RecentMatch;
 import com.riftdata.domain.team.dto.TeamDetailResponse.RosterPlayer;
-import com.riftdata.domain.team.dto.TeamDetailResponse.StatRanks;
-import com.riftdata.domain.team.dto.TeamDetailResponse.TeamStats;
+import com.riftdata.domain.team.dto.TeamDetailResponse.TeamStat;
 import com.riftdata.domain.team.dto.TeamResponse;
 import com.riftdata.domain.team.entity.Team;
 import com.riftdata.domain.team.repository.MatchTeamResult;
@@ -21,8 +23,10 @@ import com.riftdata.global.exception.BusinessException;
 import com.riftdata.global.exception.ErrorCode;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -38,6 +42,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/** 팀 목록(API-10), 순위표(API-08), 팀 상세(API-11). */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -46,25 +51,34 @@ public class TeamService {
 	private static final int RECENT_COUNT = 5;
 
 	private final TeamRepository teamRepository;
+	private final SeasonSettings seasonSettings;
 
 	public List<TeamResponse> getTeams() {
 		return teamRepository.findAllByOrderByCodeAsc().stream().map(TeamResponse::from).toList();
 	}
 
-	/**
-	 * 정규 시즌 순위표. 저장하지 않고 끝난 경기의 세트 기록으로 매번 계산한다.
-	 * 정렬: 경기 승수 → 세트 득실 → 승자승 → 세트 승수 → 팀코드 (화면 설계서 SCR-005).
-	 */
+	/** 순위표 (API-08). asOf는 집계에 들어간 마지막 경기 날짜다. */
+	public StandingsResponse getStandingsTable() {
+		List<FinishedMatch> regularMatches = regularMatches();
+		LocalDate asOf = regularMatches.isEmpty() ? null
+				: regularMatches.getLast().home().matchTime().toLocalDate();
+		return new StandingsResponse(asOf, seasonSettings.getPlayoffTeamCount(), standings(regularMatches));
+	}
+
+	/** 순위표 행만. 팀 상세와 다른 도메인(TeamStandingReader)이 같은 계산을 쓴다. */
 	public List<StandingResponse> getStandings() {
+		return standings(regularMatches());
+	}
+
+	/**
+	 * 정규 시즌 순위. 저장하지 않고 끝난 경기의 세트 기록으로 매번 계산한다.
+	 * 순위: 경기 승수 → 세트 득실 → 승자승. 승자승까지 같으면 같은 순위이고, 화면 순서는 팀코드순이다.
+	 */
+	private List<StandingResponse> standings(List<FinishedMatch> regularMatches) {
 		Map<Long, StandingTally> tallies = new LinkedHashMap<>();
 		for (Team team : teamRepository.findAllByOrderByCodeAsc()) {
 			tallies.put(team.getId(), new StandingTally(team.getId(), team.getCode()));
 		}
-
-		List<FinishedMatch> regularMatches = finishedMatches().stream()
-				.filter(match -> match.home().regular())
-				.sorted(Comparator.comparing(match -> match.home().matchTime()))
-				.toList();
 		regularMatches.forEach(match -> {
 			tallies.get(match.home().teamId()).add(match.home());
 			tallies.get(match.away().teamId()).add(match.away());
@@ -77,39 +91,43 @@ public class TeamService {
 				.collect(Collectors.groupingBy(r -> List.of(r.wins(), r.setDiff()),
 						LinkedHashMap::new, Collectors.toList()));
 
-		List<StandingTally> sorted = new ArrayList<>();
+		List<StandingResponse> rows = new ArrayList<>();
+		int position = 0;
 		for (List<StandingTally> group : tiedGroups.values()) {
-			sorted.addAll(breakTie(group, regularMatches));
+			Map<Long, Integer> headToHead = headToHeadWins(group, regularMatches);
+			List<StandingTally> ordered = group.stream()
+					.sorted(Comparator.comparingInt((StandingTally r) -> headToHead.getOrDefault(r.teamId, 0)).reversed()
+							.thenComparing(r -> r.code))
+					.toList();
+			int rank = 0;
+			Integer previousWins = null;
+			for (StandingTally tally : ordered) {
+				position++;
+				int wins = headToHead.getOrDefault(tally.teamId, 0);
+				if (!Integer.valueOf(wins).equals(previousWins)) {
+					rank = position;
+					previousWins = wins;
+				}
+				rows.add(tally.toResponse(rank));
+			}
 		}
-
-		List<StandingResponse> standings = new ArrayList<>();
-		for (int i = 0; i < sorted.size(); i++) {
-			standings.add(sorted.get(i).toResponse(i + 1));
-		}
-		return standings;
+		return rows;
 	}
 
-	/**
-	 * 승수·득실이 같은 팀들의 순서. 그 팀들끼리 치른 정규 시즌 경기의 승수(승자승)로 먼저 정한다.
-	 * 세 팀 이상이면 묶음 안의 맞대결만 센다. 그래도 같으면(순환 등) 세트 승수 → 팀코드 순이다.
-	 */
-	private static List<StandingTally> breakTie(List<StandingTally> group, List<FinishedMatch> regularMatches) {
+	/** 묶음 안 팀들끼리 치른 정규 시즌 경기의 승수 (승자승). 세 팀 이상이면 묶음 안 맞대결만 센다. */
+	private static Map<Long, Integer> headToHeadWins(List<StandingTally> group, List<FinishedMatch> regularMatches) {
+		Map<Long, Integer> wins = new HashMap<>();
 		if (group.size() == 1) {
-			return group;
+			return wins;
 		}
 		Set<Long> ids = group.stream().map(r -> r.teamId).collect(Collectors.toSet());
-		Map<Long, Integer> headToHeadWins = new HashMap<>();
 		for (FinishedMatch match : regularMatches) {
 			if (ids.contains(match.home().teamId()) && ids.contains(match.away().teamId())) {
 				MatchTeamResult winner = match.home().won() ? match.home() : match.away();
-				headToHeadWins.merge(winner.teamId(), 1, Integer::sum);
+				wins.merge(winner.teamId(), 1, Integer::sum);
 			}
 		}
-		return group.stream()
-				.sorted(Comparator.comparingInt((StandingTally r) -> headToHeadWins.getOrDefault(r.teamId, 0)).reversed()
-						.thenComparing(Comparator.comparingInt((StandingTally r) -> r.setWins).reversed())
-						.thenComparing(r -> r.code))
-				.toList();
+		return wins;
 	}
 
 	public TeamDetailResponse getTeam(Long teamId) {
@@ -121,8 +139,9 @@ public class TeamService {
 				.findFirst()
 				.orElseThrow();
 
-		return new TeamDetailResponse(team.getId(), team.getCode(), standing,
-				roster(teamId), stats(teamId), recentMatches(teamId));
+		return new TeamDetailResponse(team.getId(), team.getCode(), null, null,
+				standing.rank(), standing.wins(), standing.losses(), standing.setWins(), standing.setLosses(),
+				roster(teamId), teamStats(teamId), recentMatches(teamId));
 	}
 
 	private List<RosterPlayer> roster(Long teamId) {
@@ -139,7 +158,7 @@ public class TeamService {
 		int kills = sets.stream().mapToInt(RosterSetRow::kills).sum();
 		int deaths = sets.stream().mapToInt(RosterSetRow::deaths).sum();
 		int assists = sets.stream().mapToInt(RosterSetRow::assists).sum();
-		Double kda = sets.isEmpty() ? null : round((kills + assists) / (double) Math.max(deaths, 1), 2);
+		Double kda = sets.isEmpty() ? null : round((kills + assists) / (double) Math.max(deaths, 1), 1);
 		OptionalDouble avgRating = sets.stream()
 				.map(set -> Rating.fromPoints(set.totalPoints()))
 				.filter(Objects::nonNull)
@@ -150,11 +169,10 @@ public class TeamService {
 				row.player().getNickname(),
 				row.player().getName(),
 				row.player().getPosition(),
-				row.season() == null ? null : row.season().getSets(),
-				row.season() == null ? null : row.season().getTotalPoints(),
+				null,
 				sets.size(),
 				avgRating.isPresent() ? round(avgRating.getAsDouble(), 1) : null,
-				kills, deaths, assists, kda,
+				kda,
 				mainChampion(sets));
 	}
 
@@ -163,58 +181,58 @@ public class TeamService {
 		return sets.stream()
 				.collect(Collectors.groupingBy(RosterSetRow::championId))
 				.values().stream()
-				.map(picks -> new MainChampion(picks.get(0).championId(), picks.get(0).championName(), picks.size()))
-				.min(Comparator.comparingInt(MainChampion::sets).reversed().thenComparing(MainChampion::name))
+				.min(Comparator.comparingInt((List<RosterSetRow> picks) -> picks.size()).reversed()
+						.thenComparing(picks -> picks.get(0).championName()))
+				.map(picks -> new MainChampion(picks.get(0).championId(), picks.get(0).championName()))
 				.orElse(null);
 	}
 
-	/** 팀 지표에 리그 내 순위를 붙인다. 세트 기록이 없는 팀은 지표·순위가 모두 null이다. */
-	private TeamStats stats(Long teamId) {
-		Map<Long, TeamStats> league = leagueStats();
-		TeamStats own = league.get(teamId);
-		if (own == null) {
-			return new TeamStats(0, null, null, null, null, null, null, null,
-					new StatRanks(league.size(), null, null, null, null, null, null, null));
-		}
-		StatRanks ranks = new StatRanks(league.size(),
-				rankOf(teamId, league, TeamStats::goldDiffAt15, true),
-				rankOf(teamId, league, TeamStats::firstDragonRate, true),
-				rankOf(teamId, league, TeamStats::firstTowerRate, true),
-				rankOf(teamId, league, TeamStats::firstBaronRate, true),
-				rankOf(teamId, league, TeamStats::avgPlaySeconds, false),
-				rankOf(teamId, league, TeamStats::blueWinRate, true),
-				rankOf(teamId, league, TeamStats::redWinRate, true));
-		return new TeamStats(own.sets(), own.goldDiffAt15(), own.firstDragonRate(), own.firstTowerRate(),
-				own.firstBaronRate(), own.avgPlaySeconds(), own.blueWinRate(), own.redWinRate(), ranks);
+	/**
+	 * 팀 지표 목록 (화면 표시 순). 골드 차와 첫 오브젝트 획득률은 리그 내 순위를 붙이고,
+	 * 진영 승률과 평균 경기 시간은 높고 낮음이 좋고 나쁨이 아니라서 순위를 매기지 않는다.
+	 */
+	private List<TeamStat> teamStats(Long teamId) {
+		Map<Long, StatValues> league = leagueStats();
+		StatValues own = league.getOrDefault(teamId, StatValues.EMPTY);
+		return List.of(
+				new TeamStat("GD15", "15분 골드 차", own.goldDiffAt15(),
+						rankOf(own.goldDiffAt15(), league, StatValues::goldDiffAt15)),
+				new TeamStat("FIRST_DRAGON_RATE", "첫 드래곤 획득률", own.firstDragonRate(),
+						rankOf(own.firstDragonRate(), league, StatValues::firstDragonRate)),
+				new TeamStat("FIRST_TOWER_RATE", "첫 포탑 획득률", own.firstTowerRate(),
+						rankOf(own.firstTowerRate(), league, StatValues::firstTowerRate)),
+				new TeamStat("FIRST_BARON_RATE", "첫 바론 획득률", own.firstBaronRate(),
+						rankOf(own.firstBaronRate(), league, StatValues::firstBaronRate)),
+				new TeamStat("AVG_DURATION_SEC", "평균 경기 시간", own.avgDurationSec(), null),
+				new TeamStat("BLUE_WIN_RATE", "블루 승률", own.blueWinRate(), null),
+				new TeamStat("RED_WIN_RATE", "레드 승률", own.redWinRate(), null));
 	}
 
-	/** 세트 기록이 있는 모든 팀의 지표 (순위 없이). 쿼리 두 번으로 리그 전체를 계산한다. */
-	private Map<Long, TeamStats> leagueStats() {
+	/** 세트 기록이 있는 모든 팀의 지표. 쿼리 두 번으로 리그 전체를 계산한다. */
+	private Map<Long, StatValues> leagueStats() {
 		Map<Long, List<Long>> goldDiffs = goldDiffsAt15();
-		Map<Long, TeamStats> league = new HashMap<>();
+		Map<Long, StatValues> league = new HashMap<>();
 		teamRepository.findAllTeamSetSummaries().stream()
 				.collect(Collectors.groupingBy(TeamSetSummary::teamId))
-				.forEach((teamId, sets) -> league.put(teamId, teamStats(sets, goldDiffs.get(teamId))));
+				.forEach((teamId, sets) -> league.put(teamId, statValues(sets, goldDiffs.get(teamId))));
 		return league;
 	}
 
-	private static TeamStats teamStats(List<TeamSetSummary> sets, List<Long> goldDiffs) {
+	private static StatValues statValues(List<TeamSetSummary> sets, List<Long> goldDiffs) {
 		List<TeamSetSummary> blue = sets.stream().filter(s -> s.side() == Side.BLUE).toList();
 		List<TeamSetSummary> red = sets.stream().filter(s -> s.side() == Side.RED).toList();
-		Integer avgPlaySeconds = (int) Math.round(
+		int avgDurationSec = (int) Math.round(
 				sets.stream().mapToInt(s -> s.playTime().toSecondOfDay()).average().orElseThrow());
 		Integer goldDiffAt15 = goldDiffs == null ? null
 				: (int) Math.round(goldDiffs.stream().mapToLong(Long::longValue).average().orElseThrow());
-		return new TeamStats(
-				sets.size(),
+		return new StatValues(
 				goldDiffAt15,
 				rate(sets, TeamSetSummary::firstDragon),
 				rate(sets, TeamSetSummary::firstTower),
 				rate(sets, TeamSetSummary::firstBaron),
-				avgPlaySeconds,
+				avgDurationSec,
 				rate(blue, TeamSetSummary::victory),
-				rate(red, TeamSetSummary::victory),
-				null);
+				rate(red, TeamSetSummary::victory));
 	}
 
 	/** 팀별 세트당 15분 골드 차 목록. 양 팀 5명 모두 15분 골드가 있는 세트만 쓴다. */
@@ -233,23 +251,18 @@ public class TeamService {
 		return diffs;
 	}
 
-	/** 1 + 이 팀보다 좋은 값을 가진 팀 수. 값이 없으면 null. */
-	private static Integer rankOf(Long teamId, Map<Long, TeamStats> league,
-			Function<TeamStats, Integer> metric, boolean higherIsBetter) {
-		Integer own = metric.apply(league.get(teamId));
+	/** 1 + 이 값보다 큰 값을 가진 팀 수. 값이 없으면 null. */
+	private static <T extends Number & Comparable<T>> Integer rankOf(T own, Map<Long, StatValues> league,
+			Function<StatValues, T> metric) {
 		if (own == null) {
 			return null;
 		}
 		long better = league.values().stream()
 				.map(metric)
 				.filter(Objects::nonNull)
-				.filter(value -> higherIsBetter ? value > own : value < own)
+				.filter(value -> value.compareTo(own) > 0)
 				.count();
 		return (int) better + 1;
-	}
-
-	private static double round(double value, int scale) {
-		return BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP).doubleValue();
 	}
 
 	private List<RecentMatch> recentMatches(Long teamId) {
@@ -260,10 +273,18 @@ public class TeamService {
 				.map(match -> {
 					MatchTeamResult own = match.side(teamId);
 					MatchTeamResult opponent = match.other(teamId);
-					return new RecentMatch(own.matchId(), own.matchTime(), own.stageName(),
-							opponent.teamId(), opponent.teamCode(),
-							own.setWins().intValue(), opponent.setWins().intValue(), own.won());
+					return new RecentMatch(own.matchId(), own.matchTime().toLocalDate(),
+							new Opponent(opponent.teamId(), opponent.teamCode()), own.won(),
+							own.setWins() + ":" + opponent.setWins());
 				})
+				.toList();
+	}
+
+	/** 끝난 정규 시즌 경기, 오래된 순. */
+	private List<FinishedMatch> regularMatches() {
+		return finishedMatches().stream()
+				.filter(match -> match.home().regular())
+				.sorted(Comparator.comparing(match -> match.home().matchTime()))
 				.toList();
 	}
 
@@ -278,12 +299,30 @@ public class TeamService {
 				.toList();
 	}
 
-	private static <T> Integer rate(List<T> rows, Function<T, Boolean> flag) {
+	/** 비율 0~1, 소수 3자리. 대상이 없으면 null. */
+	private static <T> Double rate(List<T> rows, Function<T, Boolean> flag) {
 		if (rows.isEmpty()) {
 			return null;
 		}
 		long count = rows.stream().map(flag).filter(Predicate.isEqual(true)).count();
-		return (int) Math.round(count * 100.0 / rows.size());
+		return round(count / (double) rows.size(), 3);
+	}
+
+	private static double round(double value, int scale) {
+		return BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP).doubleValue();
+	}
+
+	/** 팀 지표 원값 (순위 계산 전). */
+	private record StatValues(
+			Integer goldDiffAt15,
+			Double firstDragonRate,
+			Double firstTowerRate,
+			Double firstBaronRate,
+			Integer avgDurationSec,
+			Double blueWinRate,
+			Double redWinRate) {
+
+		static final StatValues EMPTY = new StatValues(null, null, null, null, null, null, null);
 	}
 
 	private record FinishedMatch(MatchTeamResult home, MatchTeamResult away) {
@@ -319,14 +358,13 @@ public class TeamService {
 
 		void add(MatchTeamResult result) {
 			boolean won = result.won();
-			int lost = (int) (result.setsPlayed() - result.setWins());
 			if (won) {
 				wins++;
 			} else {
 				losses++;
 			}
 			setWins += result.setWins().intValue();
-			setLosses += lost;
+			setLosses += (int) (result.setsPlayed() - result.setWins());
 			results.add(won ? "W" : "L");
 		}
 
@@ -340,10 +378,11 @@ public class TeamService {
 
 		StandingResponse toResponse(int rank) {
 			int matches = wins + losses;
-			int winRate = matches == 0 ? 0 : (int) Math.round(wins * 100.0 / matches);
-			List<String> recent = results.subList(Math.max(0, results.size() - RECENT_COUNT), results.size());
-			return new StandingResponse(rank, teamId, code, matches, wins, losses, setWins, setLosses,
-					setDiff(), winRate, List.copyOf(recent));
+			double winRate = matches == 0 ? 0.0 : round(wins / (double) matches, 3);
+			List<String> recent5 = new ArrayList<>(results.subList(Math.max(0, results.size() - RECENT_COUNT), results.size()));
+			Collections.reverse(recent5);
+			return new StandingResponse(rank, teamId, code, null, matches, wins, losses, setWins, setLosses,
+					setDiff(), winRate, List.copyOf(recent5));
 		}
 	}
 }
