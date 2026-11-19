@@ -1,6 +1,9 @@
 package com.riftdata.domain.team;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -24,7 +27,7 @@ import com.riftdata.domain.record.repository.TeamSetRepository;
 import com.riftdata.domain.team.entity.Team;
 import com.riftdata.domain.team.dto.TeamStanding;
 import com.riftdata.domain.team.dto.StandingResponse;
-import com.riftdata.domain.team.dto.TeamDetailResponse.StatRanks;
+import com.riftdata.domain.team.dto.TeamDetailResponse;
 import com.riftdata.domain.team.repository.TeamRepository;
 import com.riftdata.domain.team.service.TeamService;
 import com.riftdata.domain.team.service.TeamStandingReader;
@@ -137,28 +140,33 @@ class TeamControllerTests {
 	}
 
 	@Test
-	@DisplayName("팀 목록에 새 팀이 들어 있다")
+	@DisplayName("팀 목록은 teamId, code, name을 준다 (팀명 컬럼이 없어 name은 null)")
 	void listsTeams() throws Exception {
 		mockMvc.perform(get("/api/v1/teams"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$[?(@.code == 'TSA')].teamId").value(tsa.getId().intValue()));
+				.andExpect(jsonPath("$[?(@.code == 'TSA')].teamId").value(tsa.getId().intValue()))
+				.andExpect(jsonPath("$[?(@.code == 'TSA')].name").value(contains((Object) null)));
 	}
 
 	@Test
-	@DisplayName("순위표는 끝난 정규 시즌 경기만 집계한다")
+	@DisplayName("순위표는 끝난 정규 시즌 경기만 집계하고 명세 형식(asOf, playoffTeamCount, rows)으로 준다")
 	void standingsCountOnlyFinishedRegularMatches() throws Exception {
 		mockMvc.perform(get("/api/v1/standings"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$[?(@.code == 'TSA')].matches").value(2))
-				.andExpect(jsonPath("$[?(@.code == 'TSA')].wins").value(2))
-				.andExpect(jsonPath("$[?(@.code == 'TSA')].setWins").value(4))
-				.andExpect(jsonPath("$[?(@.code == 'TSA')].setLosses").value(1))
-				.andExpect(jsonPath("$[?(@.code == 'TSA')].winRate").value(100))
-				.andExpect(jsonPath("$[?(@.code == 'TSA')].recent[*]").value(org.hamcrest.Matchers.contains("W", "W")))
-				.andExpect(jsonPath("$[?(@.code == 'TSB')].wins").value(1))
-				.andExpect(jsonPath("$[?(@.code == 'TSB')].setDiff").value(1))
-				.andExpect(jsonPath("$[?(@.code == 'TSC')].losses").value(2))
-				.andExpect(jsonPath("$[?(@.code == 'TSC')].setDiff").value(-4));
+				.andExpect(jsonPath("$.playoffTeamCount").value(6))
+				.andExpect(jsonPath("$.asOf").exists())
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSA')].matches").value(2))
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSA')].wins").value(2))
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSA')].setWins").value(4))
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSA')].setLosses").value(1))
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSA')].winRate").value(1.0))
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSB')].wins").value(1))
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSB')].winRate").value(0.5))
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSB')].setDiff").value(1))
+				// TSB: M1(1일) 패 → M3(3일) 승. recent5는 최근 경기부터
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSB')].recent5[*]").value(contains("W", "L")))
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSC')].losses").value(2))
+				.andExpect(jsonPath("$.rows[?(@.code == 'TSC')].setDiff").value(-4));
 	}
 
 	@Test
@@ -173,13 +181,13 @@ class TeamControllerTests {
 		playBo3(tha, thy, 12);
 		playBo3(thz, thb, 13);
 
-		List<String> order = codesInOrder("THA", "THB");
-		assertThat(order).containsExactly("THB", "THA");
+		assertThat(codesInOrder("THA", "THB")).containsExactly("THB", "THA");
+		assertThat(rankOf("THB")).isEqualTo(rankOf("THA") - 1);
 	}
 
 	@Test
-	@DisplayName("세 팀이 서로 한 번씩 이긴 순환 동률은 세트 승수 → 팀코드로 정한다")
-	void circularTieFallsBackToCode() {
+	@DisplayName("승자승까지 같은 순환 동률은 같은 순위이고 팀코드순으로 놓는다")
+	void circularTieSharesRank() {
 		// TCA > TCB > TCC > TCA, 세 팀 모두 1승 1패, 세트 3-3, 맞대결 1승씩
 		Team tca = teamRepository.save(Team.builder().code("TCA").build());
 		Team tcb = teamRepository.save(Team.builder().code("TCB").build());
@@ -189,12 +197,14 @@ class TeamControllerTests {
 		playBo3(tca, tcb, 16);
 
 		assertThat(codesInOrder("TCA", "TCB", "TCC")).containsExactly("TCA", "TCB", "TCC");
+		assertThat(rankOf("TCB")).isEqualTo(rankOf("TCA"));
+		assertThat(rankOf("TCC")).isEqualTo(rankOf("TCA"));
 	}
 
 	@Test
 	@DisplayName("세 팀 동률이면 그 팀들끼리의 맞대결 승수만 센다")
 	void headToHeadAmongThreeTeams() {
-		// TTA·TTB·TTC 모두 2승 2패, 세트 4-4. 셋끼리는 TTC 2승, TTB 1승, TTA 0승
+		// TTA·TTB·TTC 모두 2승 2패, 세트 6-6. 셋끼리는 TTC 2승, TTB 1승, TTA 0승
 		Team tta = teamRepository.save(Team.builder().code("TTA").build());
 		Team ttb = teamRepository.save(Team.builder().code("TTB").build());
 		Team ttc = teamRepository.save(Team.builder().code("TTC").build());
@@ -211,6 +221,7 @@ class TeamControllerTests {
 		playBo3(tto, ttc, 25);
 
 		assertThat(codesInOrder("TTA", "TTB", "TTC")).containsExactly("TTC", "TTB", "TTA");
+		assertThat(List.of(rankOf("TTB") - rankOf("TTC"), rankOf("TTA") - rankOf("TTB"))).containsExactly(1, 1);
 	}
 
 	@Test
@@ -222,6 +233,7 @@ class TeamControllerTests {
 		TeamStanding b = byId.get(tsb.getId());
 		assertThat(List.of(a.wins(), a.losses())).containsExactly(2, 0);
 		assertThat(List.of(b.wins(), b.losses())).containsExactly(1, 1);
+		assertThat(a.rank()).isEqualTo(rankOf("TSA"));
 		assertThat(a.rank()).isLessThan(b.rank());
 	}
 
@@ -233,32 +245,41 @@ class TeamControllerTests {
 	}
 
 	@Test
-	@DisplayName("팀 상세는 성적, 로스터, 지표, 최근 경기를 돌려준다")
+	@DisplayName("팀 상세는 명세 형식으로 성적, 로스터, 팀 지표, 최근 경기를 준다")
 	void teamDetail() throws Exception {
 		mockMvc.perform(get("/api/v1/teams/{id}", tsa.getId()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.code").value("TSA"))
-				.andExpect(jsonPath("$.standing.wins").value(2))
-				// 로스터: 포지션 순, MID 선수만 시즌 지표가 있다
+				.andExpect(jsonPath("$.name").value(nullValue()))
+				.andExpect(jsonPath("$.coach").value(nullValue()))
+				.andExpect(jsonPath("$.rank").value(rankOf("TSA")))
+				.andExpect(jsonPath("$.wins").value(2))
+				.andExpect(jsonPath("$.losses").value(0))
+				.andExpect(jsonPath("$.setWins").value(4))
+				.andExpect(jsonPath("$.setLosses").value(1))
+				// 로스터: 포지션 순, name은 닉네임, 등급은 아직 null
 				.andExpect(jsonPath("$.roster.length()").value(5))
 				.andExpect(jsonPath("$.roster[0].position").value("TOP"))
-				.andExpect(jsonPath("$.roster[2].totalPoints").value(81))
-				.andExpect(jsonPath("$.roster[0].totalPoints").doesNotExist())
+				.andExpect(jsonPath("$.roster[2].name").value("TsaP2"))
+				.andExpect(jsonPath("$.roster[2].grade").value(nullValue()))
 				// 세트 9개 (M1 3, M2 2, M4 1, M5 3). 이긴 세트는 모두 블루, 진 세트는 모두 레드
-				.andExpect(jsonPath("$.stats.sets").value(9))
-				.andExpect(jsonPath("$.stats.blueWinRate").value(100))
-				.andExpect(jsonPath("$.stats.redWinRate").value(0))
-				.andExpect(jsonPath("$.stats.firstDragonRate").value(44))
-				.andExpect(jsonPath("$.stats.goldDiffAt15").value(1000))
-				.andExpect(jsonPath("$.stats.avgPlaySeconds").value(1800))
+				.andExpect(jsonPath("$.teamStats.length()").value(7))
+				.andExpect(jsonPath("$.teamStats[0].key").value("GD15"))
+				.andExpect(jsonPath("$.teamStats[0].value").value(1000))
+				.andExpect(jsonPath("$.teamStats[?(@.key == 'FIRST_DRAGON_RATE')].value").value(contains(0.444)))
+				.andExpect(jsonPath("$.teamStats[?(@.key == 'AVG_DURATION_SEC')].value").value(contains(1800)))
+				.andExpect(jsonPath("$.teamStats[?(@.key == 'BLUE_WIN_RATE')].value").value(contains(1.0)))
+				.andExpect(jsonPath("$.teamStats[?(@.key == 'BLUE_WIN_RATE')].leagueRank").value(contains((Object) null)))
+				.andExpect(jsonPath("$.teamStats[?(@.key == 'RED_WIN_RATE')].value").value(contains(0.0)))
 				// 최근 경기: 끝난 경기만 최신순 (M5 → M2 → M1), M4는 진행 중이라 빠진다
 				.andExpect(jsonPath("$.recentMatches.length()").value(3))
-				.andExpect(jsonPath("$.recentMatches[0].stageName").value("Test Playoff"))
-				.andExpect(jsonPath("$.recentMatches[0].opponentCode").value("TSC"))
-				.andExpect(jsonPath("$.recentMatches[0].setWins").value(0))
-				.andExpect(jsonPath("$.recentMatches[0].setLosses").value(3))
+				.andExpect(jsonPath("$.recentMatches[0].date").value("2026-01-05"))
+				.andExpect(jsonPath("$.recentMatches[0].opponent.code").value("TSC"))
+				.andExpect(jsonPath("$.recentMatches[0].opponent.teamId").value(tsc.getId().intValue()))
+				.andExpect(jsonPath("$.recentMatches[0].score").value("0:3"))
 				.andExpect(jsonPath("$.recentMatches[0].win").value(false))
-				.andExpect(jsonPath("$.recentMatches[2].opponentCode").value("TSB"))
+				.andExpect(jsonPath("$.recentMatches[2].opponent.code").value("TSB"))
+				.andExpect(jsonPath("$.recentMatches[2].score").value("2:1"))
 				.andExpect(jsonPath("$.recentMatches[2].win").value(true));
 	}
 
@@ -268,19 +289,15 @@ class TeamControllerTests {
 		mockMvc.perform(get("/api/v1/teams/{id}", tsa.getId()))
 				.andExpect(status().isOk())
 				// TOP: 1세트, 0/1/2, 50점 → 평점 6.0, KDA 2.0
-				.andExpect(jsonPath("$.roster[0].recordSets").value(1))
+				.andExpect(jsonPath("$.roster[0].sets").value(1))
 				.andExpect(jsonPath("$.roster[0].avgRating").value(6.0))
 				.andExpect(jsonPath("$.roster[0].kda").value(2.0))
 				.andExpect(jsonPath("$.roster[0].mainChampion.name").value("TestChamp"))
 				// MID: 3세트, 6/3/6 → KDA 4.0. 평점은 70점(7.6)·90점(9.2)만 평균 → 8.4 (점수 없는 세트 제외)
-				.andExpect(jsonPath("$.roster[2].recordSets").value(3))
-				.andExpect(jsonPath("$.roster[2].kills").value(6))
-				.andExpect(jsonPath("$.roster[2].deaths").value(3))
-				.andExpect(jsonPath("$.roster[2].assists").value(6))
+				.andExpect(jsonPath("$.roster[2].sets").value(3))
 				.andExpect(jsonPath("$.roster[2].kda").value(4.0))
 				.andExpect(jsonPath("$.roster[2].avgRating").value(8.4))
 				.andExpect(jsonPath("$.roster[2].mainChampion.name").value("OtherChamp"))
-				.andExpect(jsonPath("$.roster[2].mainChampion.sets").value(2))
 				// SUP: 데스 0이면 KDA = 킬 + 어시스트 = 6
 				.andExpect(jsonPath("$.roster[4].kda").value(6.0));
 	}
@@ -292,45 +309,35 @@ class TeamControllerTests {
 				.team(tsa).nickname("TsaBench").position(Position.TOP).build());
 		mockMvc.perform(get("/api/v1/teams/{id}", tsa.getId()))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.roster[?(@.nickname == 'TsaBench')].recordSets").value(0))
-				.andExpect(jsonPath("$.roster[?(@.nickname == 'TsaBench')].kda").value(org.hamcrest.Matchers.contains((Object) null)))
-				.andExpect(jsonPath("$.roster[?(@.nickname == 'TsaBench')].avgRating").value(org.hamcrest.Matchers.contains((Object) null)))
-				.andExpect(jsonPath("$.roster[?(@.nickname == 'TsaBench')].mainChampion").value(org.hamcrest.Matchers.contains((Object) null)));
+				.andExpect(jsonPath("$.roster[?(@.name == 'TsaBench')].sets").value(contains(0)))
+				.andExpect(jsonPath("$.roster[?(@.name == 'TsaBench')].kda").value(contains((Object) null)))
+				.andExpect(jsonPath("$.roster[?(@.name == 'TsaBench')].avgRating").value(contains((Object) null)))
+				.andExpect(jsonPath("$.roster[?(@.name == 'TsaBench')].mainChampion").value(contains((Object) null)));
 	}
 
 	@Test
-	@DisplayName("팀 지표마다 리그 내 순위가 붙는다")
+	@DisplayName("골드 차와 첫 오브젝트 획득률에 리그 내 순위가 붙는다")
 	void statRanks() {
-		StatRanks a = teamService.getTeam(tsa.getId()).stats().ranks();
-		StatRanks b = teamService.getTeam(tsb.getId()).stats().ranks();
-		assertThat(a.teams()).isGreaterThanOrEqualTo(3);
+		TeamDetailResponse a = teamService.getTeam(tsa.getId());
+		TeamDetailResponse b = teamService.getTeam(tsb.getId());
 		// 15분 골드 차: TSA +1,000, TSB −1,000
-		assertThat(a.goldDiffAt15()).isLessThan(b.goldDiffAt15());
-		// 블루 승률 100%는 항상 1위 (공동 포함)
-		assertThat(a.blueWinRate()).isEqualTo(1);
+		assertThat(leagueRank(a, "GD15")).isLessThan(leagueRank(b, "GD15"));
+		assertThat(leagueRank(a, "FIRST_DRAGON_RATE")).isNotNull();
+		assertThat(leagueRank(a, "AVG_DURATION_SEC")).isNull();
+		assertThat(leagueRank(a, "RED_WIN_RATE")).isNull();
 	}
 
 	@Test
-	@DisplayName("세트 기록이 없는 팀은 지표 순위가 모두 null이다")
-	void statRanksWithoutSets() {
-		Team empty = teamRepository.save(Team.builder().code("TSD").build());
-		StatRanks ranks = teamService.getTeam(empty.getId()).stats().ranks();
-		assertThat(ranks.goldDiffAt15()).isNull();
-		assertThat(ranks.firstDragonRate()).isNull();
-		assertThat(ranks.avgPlaySeconds()).isNull();
-		assertThat(ranks.teams()).isGreaterThanOrEqualTo(3);
-	}
-
-	@Test
-	@DisplayName("경기가 없는 팀은 0승 0패, 지표는 null이다")
+	@DisplayName("경기가 없는 팀은 0승 0패, 지표 값과 순위는 null이다")
 	void teamWithoutMatches() throws Exception {
 		Team empty = teamRepository.save(Team.builder().code("TSD").build());
 		mockMvc.perform(get("/api/v1/teams/{id}", empty.getId()))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.standing.matches").value(0))
-				.andExpect(jsonPath("$.standing.winRate").value(0))
-				.andExpect(jsonPath("$.stats.sets").value(0))
-				.andExpect(jsonPath("$.stats.blueWinRate").doesNotExist())
+				.andExpect(jsonPath("$.wins").value(0))
+				.andExpect(jsonPath("$.losses").value(0))
+				.andExpect(jsonPath("$.teamStats.length()").value(7))
+				.andExpect(jsonPath("$.teamStats[*].value").value(everyItem(nullValue())))
+				.andExpect(jsonPath("$.teamStats[*].leagueRank").value(everyItem(nullValue())))
 				.andExpect(jsonPath("$.roster.length()").value(0))
 				.andExpect(jsonPath("$.recentMatches.length()").value(0));
 	}
@@ -354,6 +361,18 @@ class TeamControllerTests {
 		set(match, 1, winner, loser);
 		set(match, 2, loser, winner);
 		set(match, 3, winner, loser);
+	}
+
+	private int rankOf(String code) {
+		return teamService.getStandings().stream()
+				.filter(row -> row.code().equals(code))
+				.findFirst()
+				.orElseThrow()
+				.rank();
+	}
+
+	private static Integer leagueRank(TeamDetailResponse team, String key) {
+		return team.teamStats().stream().filter(stat -> stat.key().equals(key)).findFirst().orElseThrow().leagueRank();
 	}
 
 	/** 순위표에서 주어진 팀코드만 순위 순으로 뽑는다. */
