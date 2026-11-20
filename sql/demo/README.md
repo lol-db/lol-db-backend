@@ -50,8 +50,8 @@ docker exec -it riftdata-mysql sh -c "mysql --force -v -uriftdata_loader -p rift
 
 ## 알아 둘 점
 
-- **재계산 스크립트가 저장소에 없습니다.** 명세서상 세트 점수(B3)와 선수 시즌 지표(B4)는 CSV 적재 뒤 재계산으로 채우지만,
-  그 스크립트가 이 저장소에 없습니다. 04(b)는 재계산 결과 컬럼(`player_set.total_points`, `player_season`)을 직접 UPDATE해서
+- **04(b)의 재계산은 결과 컬럼을 직접 UPDATE합니다.** 세트 점수(B3)와 선수 시즌 지표(B4)는 적재 프로그램([docs/csv-loader.md](../../docs/csv-loader.md))이
+  계산하지만, 시즌 전체 분포로 다시 매기므로 시연 값이 실데이터에 따라 달라집니다. 그래서 04(b)는 재계산 결과 컬럼(`player_set.total_points`, `player_season`)을 직접 UPDATE해서
   재계산이 끝난 상태를 만듭니다.
 - **세트 수(`lck_match.sets`)에는 CHECK가 없습니다.** 3·5가 아닌 값도 들어갑니다. 03 맨 아래 "참고"에 적어 두었고,
   막으려면 `schema.sql`에 `CHECK (sets IN (3, 5))`를 추가해야 합니다.

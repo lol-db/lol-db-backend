@@ -12,8 +12,9 @@
 -- 예상 결과: 각 단계 아래 주석. 마지막 [정리]를 실행하면 시연 전 상태로 돌아간다.
 --
 -- 재계산에 대해: 명세서상 세트 점수(B3, player_set.total_points)와 시즌 지표(B4, player_season)는
---   CSV 적재 뒤 재계산 스크립트가 채운다. 그런데 이 저장소에는 적재·재계산 스크립트가 없다.
---   그래서 (b)는 재계산 결과가 들어가는 두 컬럼을 직접 UPDATE해서 "재계산이 끝난 상태"를 만든다.
+--   CSV 적재 뒤 재계산 프로그램이 채운다 (docs/csv-loader.md, --loader.recalculate-only=true).
+--   재계산은 시즌 전체 같은 포지션 분포로 점수를 다시 매겨 시연용 값이 실데이터에 따라 달라지므로,
+--   (b)는 재계산 결과가 들어가는 두 컬럼을 직접 UPDATE해서 "재계산이 끝난 상태"를 예측 가능하게 만든다.
 --   서버는 저장된 값을 읽기만 하므로(평점은 total_points로 조회 때 계산) UPDATE 즉시 API 응답이 바뀐다.
 --
 -- 시연용 행만 쓴다: 팀코드 DMA/DMB, 선수 DemoA_Mid/DemoB_Mid, 챔피언 DemoChamp, 스테이지 순서 101.
@@ -149,7 +150,9 @@ WHERE ps.player_id = @pa AND s.match_id = @m2;
 -- 예상: 5 rows affected
 
 -- 2단계: 재계산 (B3 세트 점수 → B4 시즌 지표)
---   저장소에 재계산 스크립트가 없어 결과 값을 직접 넣는다. 실제 운영에서는 재계산 스크립트가 이 두 UPDATE를 대신한다.
+--   시연 값을 고정하려고 결과 값을 직접 넣는다. 실제 재계산을 보여 주려면 아래 두 UPDATE 대신
+--   ./gradlew bootRun --args="--spring.profiles.active=loader --loader.recalculate-only=true" 를 실행한다
+--   (시즌 전체를 다시 계산하므로 점수는 실데이터 분포에 따라 정해진다).
 UPDATE player_set SET total_points = 95 WHERE player_id = @pa;   -- B3: DemoA 세트 점수 55 → 95 (평점 6.4 → 9.6)
 UPDATE player_season
 SET total_points = IF(player_id = @pa, 90, 80),
