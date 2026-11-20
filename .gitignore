@@ -41,3 +41,6 @@ out/
 .env
 *.env
 !.env.example
+
+### 발표 시연 백업 (sql/demo/00_backup_restore.md) ###
+sql/demo/backup/

@@ -1,4 +1,11 @@
 spring:
+  datasource:
+    # 서버를 실행하는 DB 계정. 발표 시연처럼 조회 전용 계정(riftdata_app)으로 띄울 때
+    # DB_APP_USERNAME, DB_APP_PASSWORD를 지정한다. 없으면 공통 설정(DB_USERNAME, DB_PASSWORD, 기본 root/root)과 같다.
+    # 테스트는 데이터를 넣고 지우므로 이 값을 쓰지 않는다 (src/test/resources/config/application-local.yml).
+    username: ${DB_APP_USERNAME:${DB_USERNAME:root}}
+    password: ${DB_APP_PASSWORD:${DB_PASSWORD:root}}
+
   jpa:
     # 로컬에서 실행한 SQL을 확인한다. JPA_SHOW_SQL=false로 끌 수 있다.
     show-sql: ${JPA_SHOW_SQL:true}

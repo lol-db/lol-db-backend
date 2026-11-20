@@ -48,9 +48,15 @@ Windows PowerShell에서는 `./gradlew` 대신 `.\gradlew.bat`를 사용합니�
 
 접속 정보는 `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`로 바꿀 수 있고, 값 자체가 없으면 기존 기본값인 `localhost:3306/riftdata`, `root` / `root`를 씁니다. 빈 값은 기본값으로 대체되지 않으므로 `.env.example`을 복사한 뒤 계정과 비밀번호를 채워야 합니다.
 
+서버만 다른 계정(예: 발표 시연용 조회 전용 계정 `riftdata_app`)으로 띄우려면 `DB_APP_USERNAME`, `DB_APP_PASSWORD`를 지정합니다. 없으면 `DB_USERNAME`, `DB_PASSWORD`를 쓰고, 테스트는 데이터를 넣고 지우므로 항상 `DB_USERNAME` 계정을 씁니다.
+
 별도 프로필을 지정하지 않으면 `local`로 실행합니다. SQL 출력은 `application-local.yml`에서 켜며, `JPA_SHOW_SQL=false` 환경변수로 끌 수 있습니다. 다른 프로필은 `SPRING_PROFILES_ACTIVE`로 지정합니다. 배포용 `prod` 설정은 아직 만들지 않았습니다.
 
 `ddl-auto: validate`라서 엔티티와 테이블이 다르면 서버가 뜨지 않습니다. 테이블 구조를 바꿀 때는 `schema.sql`과 엔티티를 같이 고칩니다.
+
+## 발표 시연용 SQL
+
+권한 검증(DB 계정 분리), 제약 조건 위반, 데이터 상태 변경을 보여 주는 스크립트와 시연 순서는 [sql/demo/README.md](sql/demo/README.md)에 있습니다.
 
 ## 패키지 구조
 
