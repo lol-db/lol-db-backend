@@ -54,6 +54,14 @@ Windows PowerShell에서는 `./gradlew` 대신 `.\gradlew.bat`를 사용합니�
 
 `ddl-auto: validate`라서 엔티티와 테이블이 다르면 서버가 뜨지 않습니다. 테이블 구조를 바꿀 때는 `schema.sql`과 엔티티를 같이 고칩니다.
 
+## 데이터 적재
+
+Oracle's Elixir 2026 CSV를 넣고 세트 점수·POG·선수 시즌 지표를 계산하는 방법은 [docs/csv-loader.md](docs/csv-loader.md)에 있습니다.
+
+```bash
+./gradlew bootRun --args="--spring.profiles.active=loader --loader.file=/경로/2026_LoL_esports_match_data_from_OraclesElixir.csv"
+```
+
 ## 발표 시연용 SQL
 
 권한 검증(DB 계정 분리), 제약 조건 위반, 데이터 상태 변경을 보여 주는 스크립트와 시연 순서는 [sql/demo/README.md](sql/demo/README.md)에 있습니다.
