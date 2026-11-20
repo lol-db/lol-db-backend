@@ -128,6 +128,11 @@ class TeamControllerTests {
 					.kills(i).deaths(i == 4 ? 0 : 1).assists(2).totalPoints(50 + 10 * i).build());
 			playerSetRepository.save(PlayerSet.builder().teamSet(m1Set1[1]).position(positions[i])
 					.player(b).champion(champion).goldAt15(2800).build());
+			if (i == 0) {
+				// TOP은 점수는 높지만 시즌 9세트라 등급 대상이 아니다
+				seasonRepository.save(PlayerSeason.builder().player(a).sets(9).totalPoints(95)
+						.calculatedAt(LocalDateTime.of(2026, 1, 31, 0, 0)).build());
+			}
 			if (i == 2) {
 				seasonRepository.save(PlayerSeason.builder().player(a).sets(12).totalPoints(81)
 						.calculatedAt(LocalDateTime.of(2026, 1, 31, 0, 0)).build());
@@ -258,11 +263,15 @@ class TeamControllerTests {
 				.andExpect(jsonPath("$.losses").value(0))
 				.andExpect(jsonPath("$.setWins").value(4))
 				.andExpect(jsonPath("$.setLosses").value(1))
-				// 로스터: 포지션 순, name은 닉네임, 등급은 아직 null
+				// 로스터: 포지션 순, name은 닉네임
 				.andExpect(jsonPath("$.roster.length()").value(5))
 				.andExpect(jsonPath("$.roster[0].position").value("TOP"))
 				.andExpect(jsonPath("$.roster[2].name").value("TsaP2"))
-				.andExpect(jsonPath("$.roster[2].grade").value(nullValue()))
+				// 등급: MID는 12세트·81점 → 상위 19% → A-
+				.andExpect(jsonPath("$.roster[2].grade").value("A-"))
+				// TOP은 95점이지만 시즌 9세트(10세트 미만)라 null, JUNGLE은 시즌 기록이 없어 null
+				.andExpect(jsonPath("$.roster[0].grade").value(nullValue()))
+				.andExpect(jsonPath("$.roster[1].grade").value(nullValue()))
 				// 세트 9개 (M1 3, M2 2, M4 1, M5 3). 이긴 세트는 모두 블루, 진 세트는 모두 레드
 				.andExpect(jsonPath("$.teamStats.length()").value(7))
 				.andExpect(jsonPath("$.teamStats[0].key").value("GD15"))

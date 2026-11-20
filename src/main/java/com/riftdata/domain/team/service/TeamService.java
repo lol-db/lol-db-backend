@@ -1,5 +1,6 @@
 package com.riftdata.domain.team.service;
 
+import com.riftdata.domain.player.service.PlayerSeasonReader;
 import com.riftdata.domain.team.config.SeasonSettings;
 import com.riftdata.domain.team.dto.StandingResponse;
 import com.riftdata.domain.team.dto.StandingsResponse;
@@ -50,6 +51,7 @@ public class TeamService {
 
 	private final TeamRepository teamRepository;
 	private final SeasonSettings seasonSettings;
+	private final PlayerSeasonReader playerSeasonReader;
 
 	public List<TeamResponse> getTeams() {
 		return teamRepository.findAllByOrderByCodeAsc().stream().map(TeamResponse::from).toList();
@@ -142,17 +144,22 @@ public class TeamService {
 				roster(teamId), teamStats(teamId), recentMatches(teamId));
 	}
 
+	/** 로스터. 시즌 등급은 선수 도메인(PlayerSeasonReader)에서 로스터 전체를 한 번에 받는다. */
 	private List<RosterPlayer> roster(Long teamId) {
 		Map<Long, List<RosterSetRow>> setsByPlayer = teamRepository.findRosterSets(teamId).stream()
 				.collect(Collectors.groupingBy(RosterSetRow::playerId));
-		return teamRepository.findRoster(teamId).stream()
+		List<RosterRow> rows = teamRepository.findRoster(teamId);
+		Map<Long, String> grades = playerSeasonReader.findSeasonGrades(
+				rows.stream().map(row -> row.player().getId()).toList());
+		return rows.stream()
 				.sorted(Comparator.comparing((RosterRow row) -> row.player().getPosition())
 						.thenComparing(row -> row.player().getNickname()))
-				.map(row -> rosterPlayer(row, setsByPlayer.getOrDefault(row.player().getId(), List.of())))
+				.map(row -> rosterPlayer(row, setsByPlayer.getOrDefault(row.player().getId(), List.of()),
+						grades.get(row.player().getId())))
 				.toList();
 	}
 
-	private static RosterPlayer rosterPlayer(RosterRow row, List<RosterSetRow> sets) {
+	private static RosterPlayer rosterPlayer(RosterRow row, List<RosterSetRow> sets, String grade) {
 		int kills = sets.stream().mapToInt(RosterSetRow::kills).sum();
 		int deaths = sets.stream().mapToInt(RosterSetRow::deaths).sum();
 		int assists = sets.stream().mapToInt(RosterSetRow::assists).sum();
@@ -163,7 +170,7 @@ public class TeamService {
 				row.player().getNickname(),
 				row.player().getName(),
 				row.player().getPosition(),
-				null,
+				grade,
 				sets.size(),
 				avgRating,
 				kda,

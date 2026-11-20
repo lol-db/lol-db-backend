@@ -20,7 +20,6 @@ API 명세서(2026-11-05)의 팀·순위 도메인 API 구현 기준입니다. �
 | 08 `/standings` | `asOf` | 집계에 들어간 마지막 경기 날짜, 경기가 없으면 null | 명세에 정의가 없어 정함 |
 | 10 `/teams` | `name` | 필드 없음 | 팀명 컬럼 없음 |
 | 11 `/teams/{id}` | `name`, `coach` | 필드 없음 | 팀명·감독 컬럼 없음 |
-| 11 `/teams/{id}` | `roster[].grade` | null | 등급 컬럼이 없고 등급 변환 기준은 선수 도메인에서 정하기로 함 |
 | 11 `/teams/{id}` | `roster[]` 필드 | `realName`(실명), `sets`(평균 계산에 쓴 세트 수) 추가 | 화면에서 표본 크기를 보여 줄 수 있게 |
 | 11 `/teams/{id}` | `teamStats[].leagueRank` | 골드 차·첫 드래곤·첫 포탑·첫 바론만 순위, 경기 시간·블루/레드 승률은 null | 명세 예시에서 블루 승률 순위가 null이고, 경기 시간은 길고 짧음이 좋고 나쁨이 아님 |
 | 11 `/teams/{id}` | `teamStats[].key` | `GD15, FIRST_DRAGON_RATE, FIRST_TOWER_RATE, FIRST_BARON_RATE, AVG_DURATION_SEC, BLUE_WIN_RATE, RED_WIN_RATE` | 명세는 예시 3개만 있어서 화면설계서 SCR-006 ③ 항목으로 채움 |
@@ -62,7 +61,7 @@ API 명세서(2026-11-05)의 팀·순위 도메인 API 구현 기준입니다. �
   "teamId": 1, "code": "AUR",
   "rank": 1, "wins": 6, "losses": 2, "setWins": 13, "setLosses": 7,
   "roster": [
-    { "playerId": 13, "name": "ASTER", "realName": null, "position": "MID", "grade": null,
+    { "playerId": 13, "name": "ASTER", "realName": null, "position": "MID", "grade": "A-",
       "sets": 20, "avgRating": 7.3, "kda": 4.83, "mainChampion": { "championId": 136, "name": "Azir" } }
   ],
   "teamStats": [
