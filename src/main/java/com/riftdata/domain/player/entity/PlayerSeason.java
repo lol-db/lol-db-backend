@@ -14,8 +14,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /**
  * 선수시즌지표 (player_season). 선수와 1:0..1이라 player_id가 UNIQUE다.
@@ -37,42 +35,33 @@ public class PlayerSeason {
 	private Player player;
 
 	/** 출전세트 수 */
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "sets", nullable = false)
+	@Column(name = "sets", nullable = false, columnDefinition = "smallint unsigned")
 	private Integer sets;
 
 	/** 총합 점수. 10세트 미만이면 NULL */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "total_points")
+	@Column(name = "total_points", columnDefinition = "tinyint unsigned")
 	private Integer totalPoints;
 
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "combat_points")
+	@Column(name = "combat_points", columnDefinition = "tinyint unsigned")
 	private Integer combatPoints;
 
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "damage_points")
+	@Column(name = "damage_points", columnDefinition = "tinyint unsigned")
 	private Integer damagePoints;
 
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "laning_points")
+	@Column(name = "laning_points", columnDefinition = "tinyint unsigned")
 	private Integer laningPoints;
 
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "growth_points")
+	@Column(name = "growth_points", columnDefinition = "tinyint unsigned")
 	private Integer growthPoints;
 
 	/** 시야 영역 점수 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "ward_points")
+	@Column(name = "ward_points", columnDefinition = "tinyint unsigned")
 	private Integer wardPoints;
 
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "survival_points")
+	@Column(name = "survival_points", columnDefinition = "tinyint unsigned")
 	private Integer survivalPoints;
 
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "rank_in_position")
+	@Column(name = "rank_in_position", columnDefinition = "tinyint unsigned")
 	private Integer rankInPosition;
 
 	@Column(name = "calculated_at", nullable = false)

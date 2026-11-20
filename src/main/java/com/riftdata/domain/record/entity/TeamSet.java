@@ -20,8 +20,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /**
  * 팀세트기록 (team_set). 세트와 팀의 M:N을 푸는 테이블 (세트당 2행).
@@ -100,73 +98,61 @@ public class TeamSet {
 
 	/** 용 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "dragons", nullable = false)
+	@Column(name = "dragons", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer dragons = 0;
 
 	/** 화염 용 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "fire_dragons", nullable = false)
+	@Column(name = "fire_dragons", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer fireDragons = 0;
 
 	/** 물 용 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "water_dragons", nullable = false)
+	@Column(name = "water_dragons", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer waterDragons = 0;
 
 	/** 대지 용 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "earth_dragons", nullable = false)
+	@Column(name = "earth_dragons", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer earthDragons = 0;
 
 	/** 바람 용 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "wind_dragons", nullable = false)
+	@Column(name = "wind_dragons", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer windDragons = 0;
 
 	/** 마법공학 용 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "hextech_dragons", nullable = false)
+	@Column(name = "hextech_dragons", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer hextechDragons = 0;
 
 	/** 화학공학 용 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "chemtech_dragons", nullable = false)
+	@Column(name = "chemtech_dragons", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer chemtechDragons = 0;
 
 	/** 공허유충 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "void_grubs", nullable = false)
+	@Column(name = "void_grubs", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer voidGrubs = 0;
 
 	/** 바론 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "barons", nullable = false)
+	@Column(name = "barons", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer barons = 0;
 
 	/** 포탑 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "towers", nullable = false)
+	@Column(name = "towers", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer towers = 0;
 
 	/** 포탑방패 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "tower_plates", nullable = false)
+	@Column(name = "tower_plates", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer towerPlates = 0;
 
 	/** 억제기 개수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "inhibitors", nullable = false)
+	@Column(name = "inhibitors", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer inhibitors = 0;
 }

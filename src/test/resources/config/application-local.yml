@@ -1,0 +1,7 @@
+# 테스트 전용. 테스트는 픽스처를 INSERT하고 롤백하므로 조회 전용 앱 계정(DB_APP_USERNAME)을 쓰면 안 된다.
+# classpath:/config/의 프로필 설정이 main의 application-local.yml보다 우선해서, 앱 계정 설정을 무시하고
+# 기존 계정(DB_USERNAME, DB_PASSWORD, 기본 root/root)으로 접속한다.
+spring:
+  datasource:
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
