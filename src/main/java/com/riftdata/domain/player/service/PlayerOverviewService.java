@@ -11,16 +11,12 @@ import com.riftdata.domain.player.repository.PlayerRepository;
 import com.riftdata.domain.player.repository.PlayerSeasonRepository;
 import com.riftdata.global.common.Decimals;
 import com.riftdata.global.common.Rating;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.function.ToDoubleFunction;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -51,24 +47,24 @@ public class PlayerOverviewService {
 				allRecords.stream().map(OverviewSet::teamSetId).distinct().toList());
 		Map<Long, List<OverviewSet>> byPlayer = allRecords.stream()
 				.collect(Collectors.groupingBy(OverviewSet::playerId));
-		Map<Long, Map<String, Double>> comparable = new LinkedHashMap<>();
+		Map<Long, Map<PlayerMetric, Double>> comparable = new LinkedHashMap<>();
 		byPlayer.forEach((id, records) -> {
 			if (seasonCounts.getOrDefault(id, 0L) >= MIN_SETS) {
-				comparable.put(id, metrics(records, teamTotals));
+				comparable.put(id, PlayerMetric.compute(PlayerMetric.KEY_METRICS, records, teamTotals));
 			}
 		});
 		boolean eligible = seasonCounts.getOrDefault(playerId, 0L) >= MIN_SETS;
 		PlayerSeason season = playerSeasonRepository.findByPlayerId(playerId).orElse(null);
 		int playerCount = (int) seasonCounts.values().stream().filter(count -> count >= MIN_SETS).count();
-		Map<String, Double> ownMetrics = metrics(own, teamTotals);
-		List<KeyMetric> keyMetrics = Arrays.stream(Metric.values()).map(metric -> {
-			Double value = ownMetrics.get(metric.name());
+		Map<PlayerMetric, Double> ownMetrics = PlayerMetric.compute(PlayerMetric.KEY_METRICS, own, teamTotals);
+		List<KeyMetric> keyMetrics = PlayerMetric.KEY_METRICS.stream().map(metric -> {
+			Double value = ownMetrics.get(metric);
 			List<Double> population = comparable.values().stream()
-					.map(values -> values.get(metric.name())).filter(Objects::nonNull).toList();
-			Double top = !filtered && eligible ? topPercent(value, population, metric.direction) : null;
-			return new KeyMetric(metric.name(), metric.label, metric.round(value),
-					metric.round(mean(population)),
-					Decimals.score(top), gradeFromTop(top), metric.direction);
+					.map(values -> values.get(metric)).filter(Objects::nonNull).toList();
+			Double top = !filtered && eligible ? MetricPercentile.topPercent(value, population, metric.direction()) : null;
+			return new KeyMetric(metric.name(), metric.label(), metric.round(value),
+					metric.round(PlayerMetric.mean(population)),
+					Decimals.score(top), MetricPercentile.grade(top), metric.direction());
 		}).toList();
 
 		List<RecentSet> recentSets = own.stream().sorted(CHRONOLOGICAL.reversed()).limit(5)
@@ -118,88 +114,8 @@ public class PlayerOverviewService {
 					return new MostChampion(entry.getKey(), rows.getFirst().championName(), rows.size(),
 							Decimals.rate(rows.stream().filter(OverviewSet::win).count(), rows.size()),
 							Decimals.kda(kills, deaths, assists),
-							Decimals.stat(perMinute(rows, OverviewSet::damage, 1)),
+							PlayerMetric.DPM.round(PlayerMetric.DPM.compute(rows, Map.of())),
 							rating);
 				}).toList();
-	}
-
-	/** 분당 지표는 세트별 값의 평균이며 팀 비율의 분모에는 당시 팀원 전체를 포함합니다. */
-	private static Map<String, Double> metrics(List<OverviewSet> rows, Map<Long, TeamTotals> teamTotals) {
-		Map<String, Double> values = new LinkedHashMap<>();
-		long teamKills = rows.stream().map(OverviewSet::teamSetId).distinct()
-				.mapToLong(id -> teamTotals.getOrDefault(id, new TeamTotals(0, 0)).kills()).sum();
-		long teamDamage = rows.stream().map(OverviewSet::teamSetId).distinct()
-				.mapToLong(id -> teamTotals.getOrDefault(id, new TeamTotals(0, 0)).damage()).sum();
-		long damage = rows.stream().mapToLong(OverviewSet::damage).sum();
-		long involved = rows.stream().mapToLong(row -> (long) row.kills() + row.assists()).sum();
-		values.put("DPM", perMinute(rows, OverviewSet::damage, 1));
-		values.put("DMG_PCT", teamDamage == 0 ? null : damage / (double) teamDamage);
-		values.put("KP", teamKills == 0 ? null : involved / (double) teamKills);
-		values.put("GD15", average(rows, OverviewSet::goldDiff15));
-		values.put("CSD15", average(rows, OverviewSet::csDiff15));
-		values.put("XPD15", average(rows, OverviewSet::xpDiff15));
-		values.put("GPM", perMinute(rows, OverviewSet::earnedGold, 1));
-		values.put("CSM", perMinute(rows, OverviewSet::cs, 1));
-		values.put("VSPM", perMinute(rows, OverviewSet::vision, 1));
-		values.put("D10", perMinute(rows, OverviewSet::deaths, 10));
-		return values;
-	}
-
-	private static Double perMinute(List<OverviewSet> rows, ToDoubleFunction<OverviewSet> numerator, int factor) {
-		return mean(rows.stream().filter(row -> row.durationSec() > 0)
-				.map(row -> numerator.applyAsDouble(row) * 60 * factor / row.durationSec()).toList());
-	}
-
-	private static Double average(List<OverviewSet> rows, Function<OverviewSet, Double> value) {
-		return mean(rows.stream().map(value).filter(Objects::nonNull).toList());
-	}
-
-	private static Double mean(List<Double> values) {
-		return values.isEmpty() ? null : values.stream().mapToDouble(Double::doubleValue).average().orElseThrow();
-	}
-
-	/** 동점에는 평균 순위를 적용합니다. 비교 가능한 선수가 한 명이면 백분위를 만들지 않습니다. */
-	private static Double topPercent(Double value, List<Double> population, int direction) {
-		if (value == null || population.size() < 2) return null;
-		long worse = 0;
-		long same = 0;
-		BigDecimal target = BigDecimal.valueOf(value).setScale(8, RoundingMode.HALF_UP);
-		for (Double candidate : population) {
-			int comparison = BigDecimal.valueOf(candidate).setScale(8, RoundingMode.HALF_UP).compareTo(target);
-			if (comparison == 0) same++;
-			else if (comparison * direction < 0) worse++;
-		}
-		if (same == 0) return null;
-		double percentile = 100.0 * (worse + (same - 1) / 2.0) / (population.size() - 1);
-		return Math.max(0, Math.min(100, 100 - percentile));
-	}
-
-	private static String gradeFromTop(Double top) {
-		if (top == null) return null;
-		if (top <= 5) return "A+";
-		if (top <= 15) return "A";
-		if (top <= 25) return "A-";
-		if (top <= 40) return "B+";
-		if (top <= 55) return "B";
-		if (top <= 70) return "B-";
-		if (top <= 85) return "C+";
-		return "C";
-	}
-
-	private enum Metric {
-		DPM("분당 피해량", 1), DMG_PCT("팀 내 피해 비중", 1), KP("킬 관여율", 1),
-		GD15("15분 골드 차", 1), CSD15("15분 CS 차", 1), XPD15("15분 경험치 차", 1),
-		GPM("분당 획득 골드", 1), CSM("분당 CS", 1), VSPM("분당 시야 점수", 1), D10("10분당 데스", -1);
-		private final String label;
-		private final int direction;
-		Metric(String label, int direction) {
-			this.label = label;
-			this.direction = direction;
-		}
-
-		/** 팀 내 비중·킬 관여율은 0~1 비율(3자리), 나머지는 분당 지표·15분 차(2자리) */
-		Double round(Double value) {
-			return this == KP || this == DMG_PCT ? Decimals.rate(value) : Decimals.stat(value);
-		}
 	}
 }
