@@ -6,17 +6,14 @@ import com.riftdata.domain.player.entity.Player;
 import com.riftdata.domain.player.entity.PlayerSeason;
 import com.riftdata.domain.player.repository.PlayerOverviewRepository;
 import com.riftdata.domain.player.repository.PlayerOverviewRepository.OverviewSet;
-import com.riftdata.domain.player.repository.PlayerOverviewRepository.TeamTotals;
 import com.riftdata.domain.player.repository.PlayerRepository;
 import com.riftdata.domain.player.repository.PlayerSeasonRepository;
 import com.riftdata.global.common.Decimals;
 import com.riftdata.global.common.Rating;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PlayerOverviewService {
-	private static final int MIN_SETS = 10;
+	private static final int MIN_SETS = PositionComparison.MIN_SETS;
 	private static final Comparator<OverviewSet> CHRONOLOGICAL = Comparator
 			.comparing(OverviewSet::playedAt).thenComparing(OverviewSet::matchId).thenComparingInt(OverviewSet::setNo);
 	private final PlayerRepository playerRepository;
@@ -38,34 +35,15 @@ public class PlayerOverviewService {
 		String normalizedPatch = PlayerQuerySupport.normalizePatch(patch);
 		PlayerQuerySupport.validateChampionId(championId);
 		Player player = PlayerQuerySupport.requirePlayer(playerRepository, playerId);
-		boolean filtered = normalizedPatch != null || championId != null;
-		List<OverviewSet> allRecords = overviewRepository.findPositionSets(
-				player.getPosition(), normalizedPatch, championId);
-		List<OverviewSet> own = allRecords.stream().filter(row -> row.playerId().equals(playerId)).toList();
-		Map<Long, Long> seasonCounts = overviewRepository.findPositionSetCounts(player.getPosition());
-		Map<Long, TeamTotals> teamTotals = overviewRepository.findTeamTotals(
-				allRecords.stream().map(OverviewSet::teamSetId).distinct().toList());
-		Map<Long, List<OverviewSet>> byPlayer = allRecords.stream()
-				.collect(Collectors.groupingBy(OverviewSet::playerId));
-		Map<Long, Map<PlayerMetric, Double>> comparable = new LinkedHashMap<>();
-		byPlayer.forEach((id, records) -> {
-			if (seasonCounts.getOrDefault(id, 0L) >= MIN_SETS) {
-				comparable.put(id, PlayerMetric.compute(PlayerMetric.KEY_METRICS, records, teamTotals));
-			}
-		});
-		boolean eligible = seasonCounts.getOrDefault(playerId, 0L) >= MIN_SETS;
+		PositionComparison comparison = PositionComparison.load(overviewRepository, player, normalizedPatch, championId);
+		List<OverviewSet> own = comparison.own();
+		boolean filtered = comparison.filtered();
+		boolean eligible = comparison.eligible();
 		PlayerSeason season = playerSeasonRepository.findByPlayerId(playerId).orElse(null);
-		int playerCount = (int) seasonCounts.values().stream().filter(count -> count >= MIN_SETS).count();
-		Map<PlayerMetric, Double> ownMetrics = PlayerMetric.compute(PlayerMetric.KEY_METRICS, own, teamTotals);
-		List<KeyMetric> keyMetrics = PlayerMetric.KEY_METRICS.stream().map(metric -> {
-			Double value = ownMetrics.get(metric);
-			List<Double> population = comparable.values().stream()
-					.map(values -> values.get(metric)).filter(Objects::nonNull).toList();
-			Double top = !filtered && eligible ? MetricPercentile.topPercent(value, population, metric.direction()) : null;
-			return new KeyMetric(metric.name(), metric.label(), metric.round(value),
-					metric.round(PlayerMetric.mean(population)),
-					Decimals.score(top), MetricPercentile.grade(top), metric.direction());
-		}).toList();
+		List<KeyMetric> keyMetrics = comparison.metrics(PlayerMetric.KEY_METRICS).values().stream()
+				.map(view -> new KeyMetric(view.metric().name(), view.metric().label(), view.value(),
+						view.positionAvg(), view.topPercent(), view.grade(), view.metric().direction()))
+				.toList();
 
 		List<RecentSet> recentSets = own.stream().sorted(CHRONOLOGICAL.reversed()).limit(5)
 				.map(row -> new RecentSet(row.matchId(), row.setNo(), row.playedAt().toLocalDate(),
@@ -75,7 +53,7 @@ public class PlayerOverviewService {
 		List<RatingPoint> trend = own.stream().sorted(CHRONOLOGICAL)
 				.map(row -> new RatingPoint(row.matchId(), row.setNo(), row.playedAt().toLocalDate(),
 						Rating.fromPoints(row.totalPoints()), row.pog())).toList();
-		return new PlayerOverviewResponse(new CompareGroup(player.getPosition(), playerCount, MIN_SETS),
+		return new PlayerOverviewResponse(new CompareGroup(player.getPosition(), comparison.playerCount(), MIN_SETS),
 				overall(season, eligible && !filtered),
 				filtered ? null : areaScores(player, season, eligible),
 				mostChampions(own), keyMetrics, recentSets, trend);
