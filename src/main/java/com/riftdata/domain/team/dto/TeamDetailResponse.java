@@ -27,7 +27,7 @@ public record TeamDetailResponse(
 	 *
 	 * @param name         선수 닉네임 (화면 표시 이름)
 	 * @param realName     실명. 입력 전이면 null
-	 * @param grade        시즌 등급. 선수 도메인의 등급 기준이 정해지기 전까지 null
+	 * @param grade        시즌 종합 등급 (선수 도메인 기준, 홈과 같은 값). 시즌 점수가 없거나 10세트 미만이면 null
 	 * @param sets         세트 기록이 있는 세트 수 (플레이오프 포함). 아래 값은 모두 이 세트들로 계산한다
 	 * @param avgRating    세트 평점(0~10) 평균, 소수 1자리. 평점이 계산된 세트가 없으면 null
 	 * @param kda          (K + A) ÷ max(D, 1), 소수 2자리. 세트가 없으면 null
