@@ -37,6 +37,17 @@ class CsvTableTests {
 	}
 
 	@Test
+	@DisplayName("읽으면서 필터를 통과한 행만 남기고 걸러 낸 수를 센다 (줄 번호는 원본 기준)")
+	void filtersWhileReading() throws Exception {
+		Path file = dir.resolve("f.csv");
+		Files.writeString(file, "league,n\nLCK,1\nLPL,2\n\"LCK\",3\nLEC,4");
+		CsvTable table = CsvTable.read(file, row -> "LCK".equals(row.text("league")));
+		assertThat(table.rows()).extracting(row -> row.integer("n")).containsExactly(1, 3);
+		assertThat(table.rows()).extracting(CsvTable.Row::line).containsExactly(2, 4);
+		assertThat(table.skippedRows()).isEqualTo(2);
+	}
+
+	@Test
 	@DisplayName("정수 칸의 소수는 반올림하고, 숫자가 아니면 줄 번호와 함께 알린다")
 	void parsesNumbers() throws Exception {
 		Path file = dir.resolve("b.csv");

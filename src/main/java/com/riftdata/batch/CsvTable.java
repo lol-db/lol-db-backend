@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * 헤더가 있는 CSV 파일. 컬럼은 이름으로 찾으므로 원천 파일의 컬럼 순서가 바뀌어도 읽을 수 있다.
@@ -18,36 +19,53 @@ public final class CsvTable {
 
 	private final Map<String, Integer> columns;
 	private final List<Row> rows;
+	private final int skippedRows;
 
-	private CsvTable(Map<String, Integer> columns, List<Row> rows) {
+	private CsvTable(Map<String, Integer> columns, List<Row> rows, int skippedRows) {
 		this.columns = columns;
 		this.rows = rows;
+		this.skippedRows = skippedRows;
 	}
 
 	public static CsvTable read(Path file) throws IOException {
+		return read(file, row -> true);
+	}
+
+	/**
+	 * 한 줄씩 읽으면서 filter를 통과한 행만 메모리에 남긴다. 원천 파일이 커도(전 세계 리그 약 12만 행)
+	 * 필요한 행(LCK 약 6천 행)만큼만 메모리를 쓴다. 걸러 낸 행 수는 skippedRows()로 알 수 있다.
+	 */
+	public static CsvTable read(Path file, Predicate<Row> filter) throws IOException {
 		try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-			List<List<String>> records = parse(reader);
-			if (records.isEmpty()) {
+			List<String> header = nextRecord(reader);
+			if (header == null) {
 				throw new IOException("CSV가 비어 있습니다: " + file);
 			}
-			List<String> header = records.getFirst();
 			Map<String, Integer> columns = new HashMap<>();
 			for (int i = 0; i < header.size(); i++) {
 				String name = header.get(i).strip();
-				if (i == 0 && name.startsWith("﻿")) {
+				if (i == 0 && name.startsWith("\uFEFF")) {
 					name = name.substring(1);
 				}
 				columns.putIfAbsent(name, i);
 			}
 			List<Row> rows = new ArrayList<>();
-			for (int i = 1; i < records.size(); i++) {
-				List<String> values = records.get(i);
+			int skipped = 0;
+			int line = 1;
+			List<String> values;
+			while ((values = nextRecord(reader)) != null) {
+				line++;
 				if (values.size() == 1 && values.getFirst().isBlank()) {
 					continue;
 				}
-				rows.add(new Row(columns, i + 1, values));
+				Row row = new Row(columns, line, values);
+				if (filter.test(row)) {
+					rows.add(row);
+				} else {
+					skipped++;
+				}
 			}
-			return new CsvTable(columns, rows);
+			return new CsvTable(columns, rows, skipped);
 		}
 	}
 
@@ -59,14 +77,21 @@ public final class CsvTable {
 		return rows;
 	}
 
-	private static List<List<String>> parse(BufferedReader reader) throws IOException {
-		List<List<String>> records = new ArrayList<>();
+	/** read(file, filter)에서 걸러 낸 행 수 */
+	public int skippedRows() {
+		return skippedRows;
+	}
+
+	/** 레코드 하나(따옴표 안의 줄바꿈 포함)를 읽는다. 파일 끝이면 null */
+	private static List<String> nextRecord(BufferedReader reader) throws IOException {
 		List<String> record = new ArrayList<>();
 		StringBuilder field = new StringBuilder();
 		boolean quoted = false;
 		boolean fieldStarted = false;
+		boolean any = false;
 		int c;
 		while ((c = reader.read()) != -1) {
+			any = true;
 			char ch = (char) c;
 			if (quoted) {
 				if (ch == '"') {
@@ -94,20 +119,17 @@ public final class CsvTable {
 					if (reader.read() != '\n') reader.reset();
 				}
 				record.add(field.toString());
-				records.add(record);
-				record = new ArrayList<>();
-				field.setLength(0);
-				fieldStarted = false;
+				return record;
 			} else {
 				field.append(ch);
 				fieldStarted = true;
 			}
 		}
-		if (fieldStarted || !field.isEmpty() || !record.isEmpty()) {
-			record.add(field.toString());
-			records.add(record);
+		if (!any) {
+			return null;
 		}
-		return records;
+		record.add(field.toString());
+		return record;
 	}
 
 	/** CSV 한 줄. line은 파일의 줄 번호(헤더 = 1)이고, 오류 메시지에 쓴다. */
