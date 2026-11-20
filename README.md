@@ -48,6 +48,20 @@ Windows PowerShell에서는 `./gradlew` 대신 `.\gradlew.bat`를 사용합니�
 
 접속 정보는 `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`로 바꿀 수 있고, 값 자체가 없으면 기존 기본값인 `localhost:3306/riftdata`, `root` / `root`를 씁니다. 빈 값은 기본값으로 대체되지 않으므로 `.env.example`을 복사한 뒤 계정과 비밀번호를 채워야 합니다.
 
+### 테스트 DB
+
+테스트는 서버 DB(`DB_NAME`, 기본 `riftdata`)가 아니라 **별도 테스트 DB(`TEST_DB_NAME`, 기본 `riftdata_test`)**를 씁니다. 서버 DB에 실데이터를 적재해도 테스트 결과가 바뀌지 않게 하려는 것입니다.
+
+- 테스트 DB가 없으면 테스트가 만들고, 시작할 때 `schema.sql`로 없는 테이블을 만듭니다. 데이터는 테스트마다 롤백됩니다.
+- `schema.sql`을 바꿨으면 테스트 DB를 지우고(`DROP DATABASE riftdata_test`) 다시 실행합니다.
+- root가 아닌 계정(`.env`의 `DB_USERNAME`, 예: docker compose가 만든 `riftdata`)은 테스트 DB를 만들 권한이 없으므로 root로 한 번 권한을 줍니다.
+
+```bash
+docker exec -it riftdata-mysql mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS riftdata_test; GRANT ALL PRIVILEGES ON riftdata_test.* TO 'riftdata'@'%';"
+```
+
+### 서버 계정
+
 서버만 다른 계정(예: 발표 시연용 조회 전용 계정 `riftdata_app`)으로 띄우려면 `DB_APP_USERNAME`, `DB_APP_PASSWORD`를 지정합니다. 없으면 `DB_USERNAME`, `DB_PASSWORD`를 쓰고, 테스트는 데이터를 넣고 지우므로 항상 `DB_USERNAME` 계정을 씁니다.
 
 별도 프로필을 지정하지 않으면 `local`로 실행합니다. SQL 출력은 `application-local.yml`에서 켜며, `JPA_SHOW_SQL=false` 환경변수로 끌 수 있습니다. 다른 프로필은 `SPRING_PROFILES_ACTIVE`로 지정합니다. 배포용 `prod` 설정은 아직 만들지 않았습니다.

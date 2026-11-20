@@ -6,13 +6,15 @@
 -- 원본 DDL(RIFT_DATA_DDL_최종.sql)을 받으면 이 파일을 그것으로 바꾼다.
 -- 뷰 4개(v_match_score, v_standings, v_team_set, v_player_set)와 스테이지 초기 데이터는 아직 없다.
 --
--- 빈 데이터베이스에 한 번만 실행한다:
+-- 빈 데이터베이스에 실행한다. 테이블이 이미 있으면 건너뛰므로(IF NOT EXISTS) 다시 실행해도 안전하지만,
+-- 이미 있는 테이블의 구조는 바꾸지 않는다. 구조를 바꾼 뒤에는 DB를 지우고 다시 만든다.
 --   mysql -h 127.0.0.1 -u root -p riftdata < src/main/resources/db/schema.sql
+-- 테스트는 시작할 때 이 파일로 테스트 DB(riftdata_test)의 테이블을 자동으로 만든다.
 
 SET NAMES utf8mb4;
 
 -- 1. 팀
-CREATE TABLE team (
+CREATE TABLE IF NOT EXISTS team (
     team_id BIGINT     NOT NULL AUTO_INCREMENT COMMENT '팀ID',
     code    VARCHAR(4) NOT NULL COMMENT '팀코드 (T1, GEN)',
     PRIMARY KEY (team_id),
@@ -20,7 +22,7 @@ CREATE TABLE team (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '팀';
 
 -- 2. 선수
-CREATE TABLE player (
+CREATE TABLE IF NOT EXISTS player (
     player_id BIGINT                                    NOT NULL AUTO_INCREMENT COMMENT '선수ID',
     team_id   BIGINT                                    NOT NULL COMMENT '팀ID',
     nickname  VARCHAR(15)                               NOT NULL COMMENT '프로게이머 닉네임',
@@ -34,7 +36,7 @@ CREATE TABLE player (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '선수';
 
 -- 3. 챔피언
-CREATE TABLE champion (
+CREATE TABLE IF NOT EXISTS champion (
     champion_id BIGINT      NOT NULL AUTO_INCREMENT COMMENT '챔피언ID',
     name        VARCHAR(20) NOT NULL COMMENT '이름 (CSV champion)',
     PRIMARY KEY (champion_id),
@@ -42,7 +44,7 @@ CREATE TABLE champion (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '챔피언';
 
 -- 4. 스테이지 (ORDER는 예약어라 stage_order)
-CREATE TABLE stage (
+CREATE TABLE IF NOT EXISTS stage (
     stage_id    BIGINT           NOT NULL AUTO_INCREMENT COMMENT '스테이지ID',
     name        VARCHAR(20)      NOT NULL COMMENT '스테이지명',
     stage_order TINYINT UNSIGNED NOT NULL COMMENT '진행순서',
@@ -54,7 +56,7 @@ CREATE TABLE stage (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '스테이지';
 
 -- 5. 경기 (MATCH는 예약어라 lck_match)
-CREATE TABLE lck_match (
+CREATE TABLE IF NOT EXISTS lck_match (
     match_id   BIGINT           NOT NULL AUTO_INCREMENT COMMENT '경기ID',
     match_time DATETIME         NOT NULL COMMENT '경기일시',
     sets       TINYINT UNSIGNED NOT NULL COMMENT '세트 수 (bo3, bo5)',
@@ -73,7 +75,7 @@ CREATE TABLE lck_match (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '경기';
 
 -- 6. 세트 (SET은 예약어라 match_set)
-CREATE TABLE match_set (
+CREATE TABLE IF NOT EXISTS match_set (
     set_id     BIGINT           NOT NULL AUTO_INCREMENT COMMENT '세트ID',
     match_id   BIGINT           NOT NULL COMMENT '경기ID',
     set_number TINYINT UNSIGNED NOT NULL COMMENT '세트 번호 1~5',
@@ -90,7 +92,7 @@ CREATE TABLE match_set (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '세트';
 
 -- 7. 팀세트기록
-CREATE TABLE team_set (
+CREATE TABLE IF NOT EXISTS team_set (
     team_set_id      BIGINT              NOT NULL AUTO_INCREMENT COMMENT '팀세트기록ID',
     set_id           BIGINT              NOT NULL COMMENT '세트ID',
     team_id          BIGINT              NOT NULL COMMENT '팀ID',
@@ -124,7 +126,7 @@ CREATE TABLE team_set (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '팀세트기록';
 
 -- 8. 선수세트지표 (+ 선수세트시간대별지표 반정규화)
-CREATE TABLE player_set (
+CREATE TABLE IF NOT EXISTS player_set (
     player_set_id        BIGINT                                    NOT NULL AUTO_INCREMENT COMMENT '선수세트지표ID',
     team_set_id          BIGINT                                    NOT NULL COMMENT '팀세트기록ID',
     position             ENUM ('TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT') NOT NULL COMMENT '포지션',
@@ -194,7 +196,7 @@ CREATE TABLE player_set (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '선수세트지표';
 
 -- 9. 밴
-CREATE TABLE ban (
+CREATE TABLE IF NOT EXISTS ban (
     ban_id      BIGINT           NOT NULL AUTO_INCREMENT COMMENT '밴ID',
     team_set_id BIGINT           NOT NULL COMMENT '팀세트기록ID',
     ban_order   TINYINT UNSIGNED NOT NULL COMMENT '밴 순서 1~5',
@@ -210,7 +212,7 @@ CREATE TABLE ban (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '밴';
 
 -- 10. 선수시즌지표
-CREATE TABLE player_season (
+CREATE TABLE IF NOT EXISTS player_season (
     season_id        BIGINT            NOT NULL AUTO_INCREMENT COMMENT '선수시즌지표ID',
     player_id        BIGINT            NOT NULL COMMENT '선수ID',
     sets             SMALLINT UNSIGNED NOT NULL COMMENT '출전세트 수',

@@ -73,6 +73,7 @@ Player player = playerRepository.findById(playerId)
 
 - `.env.example`을 복사한 `.env`에 자신의 DB 계정과 비밀번호를 채웁니다.
 - DB 변수는 `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD` 다섯 개입니다.
+- 테스트는 서버 DB가 아니라 테스트 DB(`TEST_DB_NAME`, 기본 `riftdata_test`)를 씁니다. 없으면 자동으로 만들며, root가 아닌 계정은 README의 "테스트 DB"대로 권한을 한 번 받습니다.
 - 실제 `.env`와 `*.env`는 올리지 않고, `.env.example`만 공유합니다.
 - 공통 DB 연결과 엔티티 검사는 기존 `application.yml`에 유지합니다.
 - SQL 출력은 `application-local.yml`에 있습니다. 기본 프로필은 `local`입니다.
