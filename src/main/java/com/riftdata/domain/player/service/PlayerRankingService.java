@@ -82,8 +82,7 @@ public class PlayerRankingService {
 				? season.getTotalPoints() : null;
 		List<Double> ratings = records.stream().map(SetRating::points).map(Rating::fromPoints)
 				.filter(Objects::nonNull).toList();
-		Double average = ratings.isEmpty() ? null : PlayerQuerySupport.round(
-				ratings.stream().mapToDouble(Double::doubleValue).average().orElseThrow(), 1);
+		Double average = Rating.average(ratings);
 		List<AreaScore> areas = Arrays.stream(PlayerArea.values()).map(area -> {
 			Integer points = scoredSeason ? area.points(season) : null;
 			return new AreaScore(area, points == null ? null : points.doubleValue(), PlayerGrade.fromPoints(points));

@@ -61,7 +61,7 @@ public record SetDetailResponse(
 			Integer assists,
 			Integer cs,
 			Integer gold,
-			Integer dpm,
+			Double dpm,
 			Double damageShare,
 			Integer visionScore,
 			Double rating,

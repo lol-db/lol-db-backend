@@ -4,10 +4,8 @@ import com.riftdata.domain.player.entity.Player;
 import com.riftdata.domain.player.repository.PlayerRepository;
 import com.riftdata.global.exception.BusinessException;
 import com.riftdata.global.exception.ErrorCode;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 
-/** 선수 조회 API의 입력 검사와 숫자 반올림을 공통으로 처리합니다. */
+/** 선수 조회 API의 입력 검사를 공통으로 처리합니다. 반올림은 global.common.Decimals를 사용합니다. */
 public final class PlayerQuerySupport {
 	private PlayerQuerySupport() {
 	}
@@ -39,10 +37,5 @@ public final class PlayerQuerySupport {
 		if (championId != null && championId <= 0) {
 			throw new BusinessException(ErrorCode.INVALID_INPUT);
 		}
-	}
-
-	public static Double round(Double value, int places) {
-		return value == null ? null : BigDecimal.valueOf(value)
-				.setScale(places, RoundingMode.HALF_UP).doubleValue();
 	}
 }

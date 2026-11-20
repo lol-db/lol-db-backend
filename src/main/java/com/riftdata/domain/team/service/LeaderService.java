@@ -4,10 +4,9 @@ import com.riftdata.domain.team.config.SeasonSettings;
 import com.riftdata.domain.team.dto.LeaderResponse;
 import com.riftdata.domain.team.repository.LeaderSetRow;
 import com.riftdata.domain.team.repository.MetaQueryRepository;
+import com.riftdata.global.common.Decimals;
 import com.riftdata.global.common.Position;
 import com.riftdata.global.common.Rating;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -15,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalDouble;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -70,10 +68,6 @@ public class LeaderService {
 				.map(p -> new LeaderResponse(metric, label, p.playerId(), p.nickname(), p.teamCode(), value.apply(p)));
 	}
 
-	private static double round(double value, int scale) {
-		return BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP).doubleValue();
-	}
-
 	/** 한 세트의 한 포지션 (양 팀 라이너). */
 	private record LaneKey(Long setId, Position position) {
 	}
@@ -84,8 +78,8 @@ public class LeaderService {
 			String teamCode,
 			int sets,
 			Double kda,
-			Integer dpm,
-			Integer goldDiffAt15,
+			Double dpm,
+			Double goldDiffAt15,
 			Double vspm,
 			Double avgRating) {
 
@@ -103,22 +97,18 @@ public class LeaderService {
 					.map(s -> goldDiff(s, goldAt15))
 					.filter(Objects::nonNull)
 					.toList();
-			OptionalDouble rating = sets.stream()
-					.map(s -> Rating.fromPoints(s.totalPoints()))
-					.filter(Objects::nonNull)
-					.mapToDouble(Double::doubleValue)
-					.average();
+			Double avgRating = Rating.average(sets.stream().map(s -> Rating.fromPoints(s.totalPoints())).toList());
 
 			return new PlayerTotals(
 					first.playerId(),
 					first.nickname(),
 					first.teamCode(),
 					sets.size(),
-					round((kills + assists) / (double) Math.max(deaths, 1), 1),
-					minutes == 0 ? null : (int) Math.round(damage / minutes),
-					diffs.isEmpty() ? null : (int) Math.round(diffs.stream().mapToInt(Integer::intValue).average().orElseThrow()),
-					minutes == 0 ? null : round(vision / minutes, 2),
-					rating.isPresent() ? round(rating.getAsDouble(), 1) : null);
+					Decimals.kda(kills, deaths, assists),
+					minutes == 0 ? null : Decimals.stat(damage / minutes),
+					diffs.isEmpty() ? null : Decimals.stat(diffs.stream().mapToInt(Integer::intValue).average().orElseThrow()),
+					minutes == 0 ? null : Decimals.stat(vision / minutes),
+					avgRating);
 		}
 
 		private static Integer goldDiff(LeaderSetRow set, Map<LaneKey, Map<Long, Integer>> goldAt15) {

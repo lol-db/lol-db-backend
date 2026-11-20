@@ -17,12 +17,11 @@ import com.riftdata.domain.team.repository.RosterSetRow;
 import com.riftdata.domain.team.repository.SetGoldAt15;
 import com.riftdata.domain.team.repository.TeamRepository;
 import com.riftdata.domain.team.repository.TeamSetSummary;
+import com.riftdata.global.common.Decimals;
 import com.riftdata.global.common.Rating;
 import com.riftdata.global.common.Side;
 import com.riftdata.global.exception.BusinessException;
 import com.riftdata.global.exception.ErrorCode;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,7 +32,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -139,7 +137,7 @@ public class TeamService {
 				.findFirst()
 				.orElseThrow();
 
-		return new TeamDetailResponse(team.getId(), team.getCode(), null, null,
+		return new TeamDetailResponse(team.getId(), team.getCode(),
 				standing.rank(), standing.wins(), standing.losses(), standing.setWins(), standing.setLosses(),
 				roster(teamId), teamStats(teamId), recentMatches(teamId));
 	}
@@ -158,12 +156,8 @@ public class TeamService {
 		int kills = sets.stream().mapToInt(RosterSetRow::kills).sum();
 		int deaths = sets.stream().mapToInt(RosterSetRow::deaths).sum();
 		int assists = sets.stream().mapToInt(RosterSetRow::assists).sum();
-		Double kda = sets.isEmpty() ? null : round((kills + assists) / (double) Math.max(deaths, 1), 1);
-		OptionalDouble avgRating = sets.stream()
-				.map(set -> Rating.fromPoints(set.totalPoints()))
-				.filter(Objects::nonNull)
-				.mapToDouble(Double::doubleValue)
-				.average();
+		Double kda = sets.isEmpty() ? null : Decimals.kda(kills, deaths, assists);
+		Double avgRating = Rating.average(sets.stream().map(set -> Rating.fromPoints(set.totalPoints())).toList());
 		return new RosterPlayer(
 				row.player().getId(),
 				row.player().getNickname(),
@@ -171,7 +165,7 @@ public class TeamService {
 				row.player().getPosition(),
 				null,
 				sets.size(),
-				avgRating.isPresent() ? round(avgRating.getAsDouble(), 1) : null,
+				avgRating,
 				kda,
 				mainChampion(sets));
 	}
@@ -223,8 +217,8 @@ public class TeamService {
 		List<TeamSetSummary> red = sets.stream().filter(s -> s.side() == Side.RED).toList();
 		int avgDurationSec = (int) Math.round(
 				sets.stream().mapToInt(s -> s.playTime().toSecondOfDay()).average().orElseThrow());
-		Integer goldDiffAt15 = goldDiffs == null ? null
-				: (int) Math.round(goldDiffs.stream().mapToLong(Long::longValue).average().orElseThrow());
+		Double goldDiffAt15 = goldDiffs == null ? null
+				: Decimals.stat(goldDiffs.stream().mapToLong(Long::longValue).average().orElseThrow());
 		return new StatValues(
 				goldDiffAt15,
 				rate(sets, TeamSetSummary::firstDragon),
@@ -305,16 +299,12 @@ public class TeamService {
 			return null;
 		}
 		long count = rows.stream().map(flag).filter(Predicate.isEqual(true)).count();
-		return round(count / (double) rows.size(), 3);
-	}
-
-	private static double round(double value, int scale) {
-		return BigDecimal.valueOf(value).setScale(scale, RoundingMode.HALF_UP).doubleValue();
+		return Decimals.rate(count, rows.size());
 	}
 
 	/** 팀 지표 원값 (순위 계산 전). */
 	private record StatValues(
-			Integer goldDiffAt15,
+			Double goldDiffAt15,
 			Double firstDragonRate,
 			Double firstTowerRate,
 			Double firstBaronRate,
@@ -378,10 +368,10 @@ public class TeamService {
 
 		StandingResponse toResponse(int rank) {
 			int matches = wins + losses;
-			double winRate = matches == 0 ? 0.0 : round(wins / (double) matches, 3);
+			double winRate = matches == 0 ? 0.0 : Decimals.rate(wins, matches);
 			List<String> recent5 = new ArrayList<>(results.subList(Math.max(0, results.size() - RECENT_COUNT), results.size()));
 			Collections.reverse(recent5);
-			return new StandingResponse(rank, teamId, code, null, matches, wins, losses, setWins, setLosses,
+			return new StandingResponse(rank, teamId, code, matches, wins, losses, setWins, setLosses,
 					setDiff(), winRate, List.copyOf(recent5));
 		}
 	}

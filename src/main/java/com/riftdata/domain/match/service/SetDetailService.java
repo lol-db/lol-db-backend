@@ -11,12 +11,11 @@ import com.riftdata.domain.record.entity.TeamSet;
 import com.riftdata.domain.record.repository.BanRepository;
 import com.riftdata.domain.record.repository.PlayerSetRepository;
 import com.riftdata.domain.record.repository.TeamSetRepository;
+import com.riftdata.global.common.Decimals;
 import com.riftdata.global.common.Rating;
 import com.riftdata.global.common.Side;
 import com.riftdata.global.exception.BusinessException;
 import com.riftdata.global.exception.ErrorCode;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -134,8 +133,8 @@ public class SetDetailService {
 				ps.getAssists(),
 				ps.getMinionKills() + ps.getMonsterKills(),
 				ps.getTotalGolds(),
-				durationSec > 0 ? (int) Math.round(damage * 60.0 / durationSec) : null,
-				teamDamage > 0 ? round3((double) damage / teamDamage) : null,
+				durationSec > 0 ? Decimals.stat(damage * 60.0 / durationSec) : null,
+				Decimals.rate(damage, teamDamage),
 				ps.getVisionPoints(),
 				Rating.fromPoints(ps.getTotalPoints()),
 				Boolean.TRUE.equals(ps.getPog()));
@@ -182,9 +181,5 @@ public class SetDetailService {
 			total += v;
 		}
 		return total;
-	}
-
-	private static double round3(double value) {
-		return BigDecimal.valueOf(value).setScale(3, RoundingMode.HALF_UP).doubleValue();
 	}
 }

@@ -9,6 +9,7 @@ import com.riftdata.domain.player.repository.PlayerOverviewRepository.OverviewSe
 import com.riftdata.domain.player.repository.PlayerOverviewRepository.TeamTotals;
 import com.riftdata.domain.player.repository.PlayerRepository;
 import com.riftdata.domain.player.repository.PlayerSeasonRepository;
+import com.riftdata.global.common.Decimals;
 import com.riftdata.global.common.Rating;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -65,10 +66,9 @@ public class PlayerOverviewService {
 			List<Double> population = comparable.values().stream()
 					.map(values -> values.get(metric.name())).filter(Objects::nonNull).toList();
 			Double top = !filtered && eligible ? topPercent(value, population, metric.direction) : null;
-			int places = metric == Metric.KP || metric == Metric.DMG_PCT ? 4 : 2;
-			return new KeyMetric(metric.name(), metric.label, PlayerQuerySupport.round(value, places),
-					PlayerQuerySupport.round(mean(population), places),
-					PlayerQuerySupport.round(top, 2), gradeFromTop(top), metric.direction);
+			return new KeyMetric(metric.name(), metric.label, metric.round(value),
+					metric.round(mean(population)),
+					Decimals.score(top), gradeFromTop(top), metric.direction);
 		}).toList();
 
 		List<RecentSet> recentSets = own.stream().sorted(CHRONOLOGICAL.reversed()).limit(5)
@@ -114,13 +114,12 @@ public class PlayerOverviewService {
 					long kills = rows.stream().mapToLong(OverviewSet::kills).sum();
 					long assists = rows.stream().mapToLong(OverviewSet::assists).sum();
 					long deaths = rows.stream().mapToLong(OverviewSet::deaths).sum();
-					Double rating = mean(rows.stream().map(row -> Rating.fromPoints(row.totalPoints()))
-							.filter(Objects::nonNull).toList());
+					Double rating = Rating.average(rows.stream().map(row -> Rating.fromPoints(row.totalPoints())).toList());
 					return new MostChampion(entry.getKey(), rows.getFirst().championName(), rows.size(),
-							PlayerQuerySupport.round(rows.stream().filter(OverviewSet::win).count() / (double) rows.size(), 4),
-							rounded((kills + assists) / (double) Math.max(deaths, 1)),
-							rounded(perMinute(rows, OverviewSet::damage, 1)),
-							PlayerQuerySupport.round(rating, 1));
+							Decimals.rate(rows.stream().filter(OverviewSet::win).count(), rows.size()),
+							Decimals.kda(kills, deaths, assists),
+							Decimals.stat(perMinute(rows, OverviewSet::damage, 1)),
+							rating);
 				}).toList();
 	}
 
@@ -157,10 +156,6 @@ public class PlayerOverviewService {
 
 	private static Double mean(List<Double> values) {
 		return values.isEmpty() ? null : values.stream().mapToDouble(Double::doubleValue).average().orElseThrow();
-	}
-
-	private static Double rounded(Double value) {
-		return PlayerQuerySupport.round(value, 2);
 	}
 
 	/** 동점에는 평균 순위를 적용합니다. 비교 가능한 선수가 한 명이면 백분위를 만들지 않습니다. */
@@ -200,6 +195,11 @@ public class PlayerOverviewService {
 		Metric(String label, int direction) {
 			this.label = label;
 			this.direction = direction;
+		}
+
+		/** 팀 내 비중·킬 관여율은 0~1 비율(3자리), 나머지는 분당 지표·15분 차(2자리) */
+		Double round(Double value) {
+			return this == KP || this == DMG_PCT ? Decimals.rate(value) : Decimals.stat(value);
 		}
 	}
 }

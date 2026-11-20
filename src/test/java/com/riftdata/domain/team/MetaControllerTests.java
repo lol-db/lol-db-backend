@@ -218,8 +218,8 @@ class MetaControllerTests {
 		assertThat(byMetric).containsOnlyKeys("KDA", "DPM", "GD15", "VSPM", "AVG_RATING");
 		assertThat(byMetric.values()).extracting(LeaderResponse::name).containsOnly("ZqLead");
 		assertThat(byMetric.get("KDA").value()).isEqualTo(300.0);       // (200 + 100) / max(0, 1)
-		assertThat(byMetric.get("DPM").value()).isEqualTo(2000);        // 600,000 / 300분
-		assertThat(byMetric.get("GD15").value()).isEqualTo(6000);       // 9,000 − 3,000
+		assertThat(byMetric.get("DPM").value()).isEqualTo(2000.0);      // 600,000 / 300분
+		assertThat(byMetric.get("GD15").value()).isEqualTo(6000.0);     // 9,000 − 3,000
 		assertThat(byMetric.get("VSPM").value()).isEqualTo(10.0);       // 3,000 / 300분
 		assertThat(byMetric.get("AVG_RATING").value()).isEqualTo(10.0); // 100점 → 10.0
 		assertThat(byMetric.get("KDA").teamCode()).isEqualTo("ZQA");
