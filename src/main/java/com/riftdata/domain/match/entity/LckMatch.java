@@ -15,8 +15,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /** 경기 (lck_match). MATCH가 SQL 예약어라 테이블명이 lck_match다. */
 @Entity
@@ -35,8 +33,7 @@ public class LckMatch {
 	private LocalDateTime matchTime;
 
 	/** 세트 수 (bo3 = 3, bo5 = 5) */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "sets", nullable = false)
+	@Column(name = "sets", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer sets;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)

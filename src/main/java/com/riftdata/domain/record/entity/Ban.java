@@ -15,8 +15,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /** 밴 (ban). 팀세트기록당 최대 5개. */
 @Entity
@@ -38,8 +36,7 @@ public class Ban {
 	private TeamSet teamSet;
 
 	/** 밴 순서 1~5 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "ban_order", nullable = false)
+	@Column(name = "ban_order", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer banOrder;
 
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
