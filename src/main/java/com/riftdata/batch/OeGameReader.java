@@ -52,6 +52,7 @@ public final class OeGameReader {
 	private final List<String> errors = new ArrayList<>();
 	private final Set<String> unknownTeams = new LinkedHashSet<>();
 	private int otherLeagueRows;
+	private int excludedSplitRows;
 	private int incompleteRows;
 	private int otherYearRows;
 
@@ -59,7 +60,8 @@ public final class OeGameReader {
 		this.properties = properties;
 	}
 
-	public record Result(List<OeGame> games, int otherLeagueRows, int incompleteRows, int otherYearRows) {
+	public record Result(List<OeGame> games, int otherLeagueRows, int excludedSplitRows, int incompleteRows,
+			int otherYearRows) {
 	}
 
 	/** 검증 오류가 있으면 LoadValidationException */
@@ -72,6 +74,9 @@ public final class OeGameReader {
 		for (Row row : table.rows()) {
 			if (!properties.getLeague().equalsIgnoreCase(String.valueOf(row.text("league")))) {
 				otherLeagueRows++;
+			} else if (properties.getExcludedSplits().stream()
+					.anyMatch(split -> split.equalsIgnoreCase(String.valueOf(row.text("split"))))) {
+				excludedSplitRows++;
 			} else if (!"complete".equalsIgnoreCase(String.valueOf(row.text("datacompleteness")))) {
 				incompleteRows++;
 			} else {
@@ -100,7 +105,7 @@ public final class OeGameReader {
 		if (!errors.isEmpty()) {
 			throw new LoadValidationException(errors);
 		}
-		return new Result(games, otherLeagueRows, incompleteRows, otherYearRows);
+		return new Result(games, otherLeagueRows, excludedSplitRows, incompleteRows, otherYearRows);
 	}
 
 	private OeGame game(String gameId, List<Row> rows) {

@@ -1,6 +1,8 @@
 package com.riftdata.batch;
 
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.Getter;
@@ -24,8 +26,14 @@ public class LoaderProperties {
 	/** true면 CSV 없이 세트 점수·POG·시즌 지표만 다시 계산한다. */
 	private boolean recalculateOnly = false;
 
+	/** true면 CSV를 읽고 사전 검증만 한다. DB에 쓰지 않는다. */
+	private boolean dryRun = false;
+
 	/** 원천의 league 값 (BR-001: LCK만) */
 	private String league = "LCK";
+
+	/** 제외할 split (BR-001: LCK Cup 제외). 원천에서 LCK Cup은 league = LCK, split = Cup이다. */
+	private List<String> excludedSplits = new ArrayList<>(List.of("Cup"));
 
 	/** 적재할 시즌 연도. 경기 일시(한국 시간)가 이 연도인 경기만 적재한다. */
 	private int seasonYear = 2026;

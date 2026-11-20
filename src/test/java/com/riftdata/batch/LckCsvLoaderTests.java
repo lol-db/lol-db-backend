@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>4/1 정규: A 2:1 (3세트) / 4/2 정규: B 2:0 / 4/3 정규: A 2:1 / 4/10 플레이오프: A 3:1 (Bo5)</li>
  *   <li>모두 12세트라 선수 10명 모두 시즌 10세트 이상</li>
  *   <li>A의 MID는 모든 세트에서 킬·피해량을 크게 올려 B의 MID보다 점수가 높아야 한다.</li>
- *   <li>제외 대상: 다른 리그(LCK CL) 1경기, 미완성 1경기, 2025년 1경기</li>
+ *   <li>제외 대상: 다른 리그(LCK CL) 1경기, LCK Cup 1경기, 미완성 1경기, 2025년 1경기</li>
  * </ul>
  */
 @SpringBootTest(properties = {
@@ -53,6 +53,7 @@ class LckCsvLoaderTests {
 		assertThat(result.loadedGames()).isEqualTo(12);
 		assertThat(result.newMatches()).isEqualTo(4);
 		assertThat(result.otherLeagueRows()).isEqualTo(12);
+		assertThat(result.excludedSplitRows()).isEqualTo(12);
 		assertThat(result.incompleteRows()).isEqualTo(12);
 		assertThat(result.otherYearRows()).isEqualTo(12);
 
@@ -168,7 +169,7 @@ class LckCsvLoaderTests {
 				.hasMessageContaining("datacompleteness");
 	}
 
-	/** 정규 3시리즈(8세트) + 플레이오프 1시리즈(4세트) + 제외 대상 3경기 */
+	/** 정규 3시리즈(8세트) + 플레이오프 1시리즈(4세트) + 제외 대상 4경기 */
 	private static OeCsvBuilder season() {
 		OeCsvBuilder csv = new OeCsvBuilder();
 		series(csv, "2026-04-01", REGULAR, false, new boolean[]{true, false, true});
@@ -179,6 +180,7 @@ class LckCsvLoaderTests {
 		csv.game("LCK", "2026-04-05 08:00:00", 1, REGULAR, false, "Team A", "Team B", true,
 				row -> row.put("datacompleteness", "partial"));
 		csv.game("2025-04-05 08:00:00", 1, REGULAR, false, "Team A", "Team B", true);
+		csv.game("2026-01-20 08:00:00", 1, "Cup", false, "Team A", "Team B", true);
 		return csv;
 	}
 

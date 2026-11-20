@@ -16,16 +16,22 @@ loader:
   season-year: 2026
   source-zone: UTC
   # Oracle's Elixir teamname → 팀코드 (team.code, 최대 4자). 시즌 중 팀 이름이 바뀌면 여기에 추가한다.
+  # BR-001: LCK Cup 제외 (원천에서 league = LCK, split = Cup)
+  excluded-splits:
+    - Cup
+  # 이름이 바뀐 팀은 같은 코드로 묶는다 (예: DRX → Kiwoom DRX, OKSavingsBank BRION → HANJIN BRION)
   team-codes:
     "[T1]": T1
     "[Gen.G]": GEN
     "[Hanwha Life Esports]": HLE
     "[KT Rolster]": KT
     "[Dplus KIA]": DK
+    "[Dplus Kia]": DK
     "[BNK FEARX]": BFX
     "[Nongshim RedForce]": NS
     "[DRX]": DRX
+    "[Kiwoom DRX]": DRX
     "[OKSavingsBank BRION]": BRO
     "[HANJIN BRION]": BRO
     "[DN Freecs]": DNF
-    "[DN SOOPers]": DNS
+    "[DN SOOPers]": DNF

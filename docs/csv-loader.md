@@ -27,6 +27,9 @@ Oracle's Elixir 2026 경기 CSV를 DB에 넣고, 세트 점수·POG(B3)와 선�
 
 # CSV 없이 재계산만 (기록을 직접 고친 뒤 등)
 ./gradlew bootRun --args="--spring.profiles.active=loader --loader.recalculate-only=true"
+
+# 사전 검증과 미리보기만 (DB에 쓰지 않음): 경기·시리즈·선수 수, 스테이지별 세트 수, 팀코드 매핑, 제외한 행
+./gradlew bootRun --args="--spring.profiles.active=loader --loader.file=/경로/파일.csv --loader.dry-run=true"
 ```
 
 - 실패하면 종료 코드 1로 끝나고, 아무것도 바뀌지 않습니다.
@@ -37,7 +40,7 @@ Oracle's Elixir 2026 경기 CSV를 DB에 넣고, 세트 점수·POG(B3)와 선�
 
 | 항목 | 규칙 |
 | --- | --- |
-| 대상 | `league = LCK`, `datacompleteness = complete`, 한국 시간 기준 2026년 경기 (BR-001, BR-002) |
+| 대상 | `league = LCK`, `datacompleteness = complete`, 한국 시간 기준 2026년 경기 (BR-001, BR-002). LCK Cup은 원천에서 `league = LCK`, `split = Cup`이라 `loader.excluded-splits`로 뺌 |
 | 시간 | 원천 `date`는 UTC라 한국 시간(+9)으로 바꿔 저장 (`loader.source-zone`) |
 | 사전 검증 | 경기마다 선수 10행(양 팀 TOP~SUPPORT 한 명씩) + 팀 2행, 승리 팀 1개, 세트 번호 1~5, 경기 시간, 이름 길이, 팀코드 매핑. **오류가 하나라도 있으면 적재하지 않고** 줄 번호와 함께 모두 출력 (BR-163) |
 | 트랜잭션 | 적재와 재계산을 한 트랜잭션으로 처리하고, 실패하면 전체 롤백 (BR-164) |
@@ -71,7 +74,18 @@ Oracle's Elixir 2026 경기 CSV를 DB에 넣고, 세트 점수·POG(B3)와 선�
 
 백분위 계산식은 API의 상위 %와 같습니다: 백분위 = 100 × (더 나쁜 값 수 + (같은 값 수 − 1) ÷ 2) ÷ (전체 수 − 1).
 
-## 5. 확인
+## 5. 실제 파일로 확인한 것 (2025 파일, 2026-11-20)
+
+2026 파일 전에 같은 형식의 `2025_LoL_esports_match_data_from_OraclesElixir.csv`로 검증했습니다 (`--loader.season-year=2025`, 별도 검증용 DB).
+
+- 필요한 컬럼이 모두 있음, 원천 `date`는 UTC (LCK 첫 세트 08:09 UTC = 한국 17:09)
+- LCK 446세트·171시리즈·선수 68명·10팀, LCK Cup 1,308행 제외, 적재+재계산 약 9초
+- 세트마다 팀 2·선수 10, 정규 시즌 팀당 30경기, 세트 점수 평균 50(평점 평균 6.0), 승리 팀 평균 56 / 패배 팀 44
+- 순위표 GEN 29승 1패, 결승 GEN 3:1 HLE 등 실제 결과와 일치
+- 팀 이름 매핑: 2025 원천 이름(`Dplus Kia`, `Kiwoom DRX`, `HANJIN BRION`, `DN SOOPers`)을 추가함
+- 참고: 원천에서 DK–KT의 2025-06-04 시리즈가 `Rounds 1-2`, `playoffs = 0`(정규)으로 표시되어 두 팀만 정규 31경기가 됩니다. 원천 그대로 적재합니다.
+
+## 6. 테스트
 
 ```bash
 ./gradlew test --tests 'com.riftdata.batch.*'
