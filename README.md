@@ -113,4 +113,4 @@ com.riftdata
 .\gradlew.bat test --tests com.riftdata.global.exception.GlobalExceptionHandlerTests
 ```
 
-전체 검사는 MySQL을 켠 뒤 `.\gradlew.bat build`로 실행합니다. 테스트는 테스트 DB(`riftdata_test`)에서 돕니다 (위 "테스트 DB").
+전체 검사는 기존과 같이 DB를 준비한 뒤 `.\gradlew.bat build`로 실행합니다.
