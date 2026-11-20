@@ -20,8 +20,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /**
  * 선수세트지표 (player_set). 팀세트기록당 5행 (포지션별 1행).
@@ -72,44 +70,37 @@ public class PlayerSet {
 
 	/** 킬 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "kills", nullable = false)
+	@Column(name = "kills", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer kills = 0;
 
 	/** 데스 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "deaths", nullable = false)
+	@Column(name = "deaths", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer deaths = 0;
 
 	/** 어시스트 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "assists", nullable = false)
+	@Column(name = "assists", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer assists = 0;
 
 	/** 더블킬 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "double_kills", nullable = false)
+	@Column(name = "double_kills", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer doubleKills = 0;
 
 	/** 트리플킬 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "triple_kills", nullable = false)
+	@Column(name = "triple_kills", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer tripleKills = 0;
 
 	/** 쿼드라킬 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "quadra_kills", nullable = false)
+	@Column(name = "quadra_kills", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer quadraKills = 0;
 
 	/** 펜타킬 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "penta_kills", nullable = false)
+	@Column(name = "penta_kills", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer pentaKills = 0;
 
 	/** 선취점 킬 */
@@ -146,8 +137,7 @@ public class PlayerSet {
 
 	/** 시야점수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "vision_points", nullable = false)
+	@Column(name = "vision_points", nullable = false, columnDefinition = "smallint unsigned")
 	private Integer visionPoints = 0;
 
 	/**
@@ -160,14 +150,12 @@ public class PlayerSet {
 
 	/** 제거한 와드 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "wards_removed", nullable = false)
+	@Column(name = "wards_removed", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer wardsRemoved = 0;
 
 	/** 제어와드 구매 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "control_wards_bought", nullable = false)
+	@Column(name = "control_wards_bought", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer controlWardsBought = 0;
 
 	/** 총 골드 */
@@ -187,19 +175,16 @@ public class PlayerSet {
 
 	/** 미니언 처치 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "minion_kills", nullable = false)
+	@Column(name = "minion_kills", nullable = false, columnDefinition = "smallint unsigned")
 	private Integer minionKills = 0;
 
 	/** 몬스터 처치 수 */
 	@Builder.Default
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "monster_kills", nullable = false)
+	@Column(name = "monster_kills", nullable = false, columnDefinition = "smallint unsigned")
 	private Integer monsterKills = 0;
 
 	/** 총 점수 0~100 (유도, B3에서 계산) */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "total_points")
+	@Column(name = "total_points", columnDefinition = "tinyint unsigned")
 	private Integer totalPoints;
 
 	/** POG 여부 (유도, B3에서 계산) */
@@ -216,23 +201,19 @@ public class PlayerSet {
 	private Integer xpAt10;
 
 	/** 10분 CS */
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "cs_at_10")
+	@Column(name = "cs_at_10", columnDefinition = "smallint unsigned")
 	private Integer csAt10;
 
 	/** 10분 킬 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "kills_at_10")
+	@Column(name = "kills_at_10", columnDefinition = "tinyint unsigned")
 	private Integer killsAt10;
 
 	/** 10분 데스 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "deaths_at_10")
+	@Column(name = "deaths_at_10", columnDefinition = "tinyint unsigned")
 	private Integer deathsAt10;
 
 	/** 10분 어시스트 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "assists_at_10")
+	@Column(name = "assists_at_10", columnDefinition = "tinyint unsigned")
 	private Integer assistsAt10;
 
 	/** 15분 골드 */
@@ -244,23 +225,19 @@ public class PlayerSet {
 	private Integer xpAt15;
 
 	/** 15분 CS */
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "cs_at_15")
+	@Column(name = "cs_at_15", columnDefinition = "smallint unsigned")
 	private Integer csAt15;
 
 	/** 15분 킬 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "kills_at_15")
+	@Column(name = "kills_at_15", columnDefinition = "tinyint unsigned")
 	private Integer killsAt15;
 
 	/** 15분 데스 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "deaths_at_15")
+	@Column(name = "deaths_at_15", columnDefinition = "tinyint unsigned")
 	private Integer deathsAt15;
 
 	/** 15분 어시스트 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "assists_at_15")
+	@Column(name = "assists_at_15", columnDefinition = "tinyint unsigned")
 	private Integer assistsAt15;
 
 	/** 20분 골드 */
@@ -272,23 +249,19 @@ public class PlayerSet {
 	private Integer xpAt20;
 
 	/** 20분 CS */
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "cs_at_20")
+	@Column(name = "cs_at_20", columnDefinition = "smallint unsigned")
 	private Integer csAt20;
 
 	/** 20분 킬 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "kills_at_20")
+	@Column(name = "kills_at_20", columnDefinition = "tinyint unsigned")
 	private Integer killsAt20;
 
 	/** 20분 데스 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "deaths_at_20")
+	@Column(name = "deaths_at_20", columnDefinition = "tinyint unsigned")
 	private Integer deathsAt20;
 
 	/** 20분 어시스트 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "assists_at_20")
+	@Column(name = "assists_at_20", columnDefinition = "tinyint unsigned")
 	private Integer assistsAt20;
 
 	/** 25분 골드 */
@@ -300,23 +273,19 @@ public class PlayerSet {
 	private Integer xpAt25;
 
 	/** 25분 CS */
-	@JdbcTypeCode(SqlTypes.SMALLINT)
-	@Column(name = "cs_at_25")
+	@Column(name = "cs_at_25", columnDefinition = "smallint unsigned")
 	private Integer csAt25;
 
 	/** 25분 킬 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "kills_at_25")
+	@Column(name = "kills_at_25", columnDefinition = "tinyint unsigned")
 	private Integer killsAt25;
 
 	/** 25분 데스 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "deaths_at_25")
+	@Column(name = "deaths_at_25", columnDefinition = "tinyint unsigned")
 	private Integer deathsAt25;
 
 	/** 25분 어시스트 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "assists_at_25")
+	@Column(name = "assists_at_25", columnDefinition = "tinyint unsigned")
 	private Integer assistsAt25;
 
 	/** B3 배치: 세트 총 점수와 POG를 계산해 넣는다. */

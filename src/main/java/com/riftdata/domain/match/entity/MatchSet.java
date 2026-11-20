@@ -15,8 +15,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /**
  * 세트 (match_set). SET이 예약어라 테이블명이 match_set이다.
@@ -39,8 +37,7 @@ public class MatchSet {
 	private LckMatch match;
 
 	/** 세트 번호 1~5 */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "set_number", nullable = false)
+	@Column(name = "set_number", nullable = false, columnDefinition = "tinyint unsigned")
 	private Integer setNumber;
 
 	/** 원본게임ID (CSV gameid) */

@@ -11,8 +11,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /** 스테이지 (stage). B1에서 초기 입력하는 기준정보다. */
 @Entity
@@ -30,8 +28,7 @@ public class Stage {
 	private String name;
 
 	/** 진행순서 (ERD의 order, 예약어라 이름 변경) */
-	@JdbcTypeCode(SqlTypes.TINYINT)
-	@Column(name = "stage_order", nullable = false, unique = true)
+	@Column(name = "stage_order", nullable = false, unique = true, columnDefinition = "tinyint unsigned")
 	private Integer stageOrder;
 
 	@Column(name = "start_date", nullable = false)
