@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * 원천 CSV를 경기 단위로 묶고 사전 검증한다 (DB에 쓰지 않음).
@@ -64,8 +65,17 @@ public final class OeGameReader {
 			int otherYearRows, List<String> warnings) {
 	}
 
+	/**
+	 * CSV를 읽을 때 대상 리그 행만 남기는 필터. 원천 전체(전 세계 리그)를 메모리에 올리지 않게 한다.
+	 * 걸러 낸 행은 CsvTable.skippedRows()로 "다른 리그"에 센다.
+	 */
+	public static Predicate<Row> leagueFilter(LoaderProperties properties) {
+		return row -> properties.getLeague().equalsIgnoreCase(String.valueOf(row.text("league")));
+	}
+
 	/** 검증 오류가 있으면 LoadValidationException */
 	public Result read(CsvTable table) {
+		otherLeagueRows = table.skippedRows();
 		List<String> missing = REQUIRED_COLUMNS.stream().filter(column -> !table.has(column)).toList();
 		if (!missing.isEmpty()) {
 			throw new LoadValidationException(List.of("CSV에 필요한 컬럼이 없습니다: " + String.join(", ", missing)));

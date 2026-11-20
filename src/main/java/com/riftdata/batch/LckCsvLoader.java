@@ -57,12 +57,12 @@ public class LckCsvLoader {
 
 	/** 사전 검증만 (DB에 쓰지 않음). 검증 오류가 있으면 LoadValidationException */
 	public OeGameReader.Result validate(Path file) throws IOException {
-		return new OeGameReader(properties).read(CsvTable.read(file));
+		return new OeGameReader(properties).read(readCsv(file));
 	}
 
 	@Transactional
 	public Result load(Path file, boolean replace) throws IOException {
-		OeGameReader.Result read = new OeGameReader(properties).read(CsvTable.read(file));
+		OeGameReader.Result read = new OeGameReader(properties).read(readCsv(file));
 		List<OeGame> games = read.games();
 		if (replace) {
 			clearMatches();
@@ -97,6 +97,11 @@ public class LckCsvLoader {
 				read.warnings(), recalculation);
 		log.info("적재 완료: {}", result);
 		return result;
+	}
+
+	/** 대상 리그 행만 메모리에 올린다 (원천 전체는 약 12만 행). */
+	private CsvTable readCsv(Path file) throws IOException {
+		return CsvTable.read(file, OeGameReader.leagueFilter(properties));
 	}
 
 	/** --replace: 경기 데이터만 지운다. 경기를 지우면 세트·팀세트·선수세트·밴이 CASCADE로 지워진다. */

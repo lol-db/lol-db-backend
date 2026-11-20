@@ -47,6 +47,14 @@ gcloud compute ssh riftdata-backend --zone=asia-northeast3-a --command='
   git clone https://github.com/lol-db/lol-db-backend.git'
 ```
 
+메모리 2GB에서 MySQL·백엔드·CSV 적재가 겹칠 때를 대비해 스왑 2GB를 추가합니다:
+
+```bash
+gcloud compute ssh riftdata-backend --zone=asia-northeast3-a --command='
+  sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile &&
+  sudo swapon /swapfile && echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab'
+```
+
 ## 2. 이미지 만들어 올리기 (배포할 때마다)
 
 ```bash
@@ -80,8 +88,8 @@ docker compose -f docker-compose.prod.yml --env-file prod.env ps
 ## 4. 데이터 적재 (처음 한 번, 시즌 데이터가 바뀌면 다시)
 
 ```bash
-# 로컬에서 CSV를 VM으로
-gcloud compute ssh riftdata-backend --zone=asia-northeast3-a --command='mkdir -p ~/lol-db-backend/data'
+# 로컬에서 CSV를 VM으로. data/는 compose가 처음 띄울 때 root 소유로 만들 수 있어 소유자를 바꿔 둔다
+gcloud compute ssh riftdata-backend --zone=asia-northeast3-a --command='mkdir -p ~/lol-db-backend/data && sudo chown $USER:$USER ~/lol-db-backend/data'
 gcloud compute scp ~/Downloads/2026_LoL_esports_match_data_from_OraclesElixir.csv \
   riftdata-backend:~/lol-db-backend/data/ --zone=asia-northeast3-a
 
