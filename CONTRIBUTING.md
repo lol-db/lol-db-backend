@@ -77,7 +77,7 @@ Player player = playerRepository.findById(playerId)
 - 실제 `.env`와 `*.env`는 올리지 않고, `.env.example`만 공유합니다.
 - 공통 DB 연결과 엔티티 검사는 기존 `application.yml`에 유지합니다.
 - SQL 출력은 `application-local.yml`에 있습니다. 기본 프로필은 `local`입니다.
-- 현재 배포용 프로필은 없습니다. DB 설정을 바꿀 때는 DB 연결 담당자와 먼저 맞춥니다.
+- 배포용 프로필은 `application-prod.yml`이고, 배포 절차는 [docs/deploy.md](docs/deploy.md)에 있습니다. DB 설정을 바꿀 때는 DB 연결 담당자와 먼저 맞춥니다.
 
 설정 파일이 `.env`를 읽는 기준은 실행한 폴더입니다. IDE에서도 작업 폴더를 프로젝트 루트로 지정하세요. 상세 실행 순서는 [README.md](README.md)에 있습니다.
 

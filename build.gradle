@@ -42,3 +42,8 @@ tasks.named('test') {
 tasks.named('jar') {
 	enabled = false
 }
+
+// 배포 이미지(Dockerfile)가 같은 이름으로 복사할 수 있게 jar 이름을 고정한다.
+tasks.named('bootJar') {
+	archiveFileName = 'riftdata-backend.jar'
+}

@@ -64,7 +64,7 @@ docker exec -it riftdata-mysql mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS
 
 서버만 다른 계정(예: 발표 시연용 조회 전용 계정 `riftdata_app`)으로 띄우려면 `DB_APP_USERNAME`, `DB_APP_PASSWORD`를 지정합니다. 없으면 `DB_USERNAME`, `DB_PASSWORD`를 쓰고, 테스트는 데이터를 넣고 지우므로 항상 `DB_USERNAME` 계정을 씁니다.
 
-별도 프로필을 지정하지 않으면 `local`로 실행합니다. SQL 출력은 `application-local.yml`에서 켜며, `JPA_SHOW_SQL=false` 환경변수로 끌 수 있습니다. 다른 프로필은 `SPRING_PROFILES_ACTIVE`로 지정합니다. 배포용 `prod` 설정은 아직 만들지 않았습니다.
+별도 프로필을 지정하지 않으면 `local`로 실행합니다. SQL 출력은 `application-local.yml`에서 켜며, `JPA_SHOW_SQL=false` 환경변수로 끌 수 있습니다. 다른 프로필은 `SPRING_PROFILES_ACTIVE`로 지정합니다. 배포용 `prod` 프로필은 `application-prod.yml`에 있습니다 ([배포](#배포)).
 
 `ddl-auto: validate`라서 엔티티와 테이블이 다르면 서버가 뜨지 않습니다. 테이블 구조를 바꿀 때는 `schema.sql`과 엔티티를 같이 고칩니다.
 
@@ -101,7 +101,9 @@ com.riftdata
 
 `main`에 push하거나 `main` 대상 PR을 올리면 GitHub Actions가 MySQL 8.0을 띄우고 `schema.sql`로 테이블을 만든 뒤 빌드와 테스트를 실행합니다. `main`에 push한 빌드의 jar는 Actions 실행 결과에 14일 동안 보관됩니다.
 
-배포 단계는 아직 없습니다.
+## 배포
+
+GCP Compute Engine VM 1대에서 Docker Compose로 MySQL과 백엔드를 띄웁니다 (`Dockerfile`, `docker-compose.prod.yml`). 절차는 [docs/deploy.md](docs/deploy.md)에 있습니다.
 
 ## 공통 오류 처리와 협업 양식
 

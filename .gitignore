@@ -44,3 +44,6 @@ out/
 
 ### 발표 시연 백업 (sql/demo/00_backup_restore.md) ###
 sql/demo/backup/
+
+### 배포 서버의 CSV 폴더 (docker-compose.prod.yml) ###
+/data/
