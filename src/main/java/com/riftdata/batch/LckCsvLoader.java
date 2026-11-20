@@ -52,7 +52,8 @@ public class LckCsvLoader {
 	private final SeasonRecalculator recalculator;
 
 	public record Result(int csvGames, int skippedExisting, int loadedGames, int newMatches, int otherLeagueRows,
-			int excludedSplitRows, int incompleteRows, int otherYearRows, SeasonRecalculator.Result recalculation) {
+			int excludedSplitRows, int incompleteRows, int otherYearRows, List<String> warnings,
+			SeasonRecalculator.Result recalculation) {
 	}
 
 	/** 사전 검증만 (DB에 쓰지 않음). 검증 오류가 있으면 LoadValidationException */
@@ -93,7 +94,8 @@ public class LckCsvLoader {
 		}
 		SeasonRecalculator.Result recalculation = recalculator.recalculate();
 		Result result = new Result(games.size(), games.size() - newGames.size(), newGames.size(), newMatches,
-				read.otherLeagueRows(), read.excludedSplitRows(), read.incompleteRows(), read.otherYearRows(), recalculation);
+				read.otherLeagueRows(), read.excludedSplitRows(), read.incompleteRows(), read.otherYearRows(),
+				read.warnings(), recalculation);
 		log.info("적재 완료: {}", result);
 		return result;
 	}

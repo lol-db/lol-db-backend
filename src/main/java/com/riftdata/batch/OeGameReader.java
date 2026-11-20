@@ -61,7 +61,7 @@ public final class OeGameReader {
 	}
 
 	public record Result(List<OeGame> games, int otherLeagueRows, int excludedSplitRows, int incompleteRows,
-			int otherYearRows) {
+			int otherYearRows, List<String> warnings) {
 	}
 
 	/** 검증 오류가 있으면 LoadValidationException */
@@ -105,7 +105,7 @@ public final class OeGameReader {
 		if (!errors.isEmpty()) {
 			throw new LoadValidationException(errors);
 		}
-		return new Result(games, otherLeagueRows, excludedSplitRows, incompleteRows, otherYearRows);
+		return new Result(games, otherLeagueRows, excludedSplitRows, incompleteRows, otherYearRows, incompleteSeries(games));
 	}
 
 	private OeGame game(String gameId, List<Row> rows) {
@@ -185,6 +185,27 @@ public final class OeGameReader {
 		}
 		Integer result = teamRow.integer("result");
 		return new TeamSide(side, teamName, code, result != null && result == 1, teamRow, players);
+	}
+
+	/**
+	 * 원천에서 세트가 빠진 것으로 보이는 시리즈 (경고, 적재는 함): 세트 번호가 1부터 이어지지 않거나 어느 팀도 2승에 닿지 않음.
+	 * 순위표는 승리 세트 수에 도달한 경기만 집계하므로 이런 경기는 순위에서 빠진다.
+	 */
+	private static List<String> incompleteSeries(List<OeGame> games) {
+		List<String> warnings = new ArrayList<>();
+		games.stream().collect(java.util.stream.Collectors.groupingBy(SeriesKey::of,
+				() -> new java.util.TreeMap<>(java.util.Comparator.comparing(SeriesKey::date).thenComparing(SeriesKey::teamA)
+						.thenComparing(SeriesKey::teamB)), java.util.stream.Collectors.toList())).forEach((key, series) -> {
+			List<Integer> numbers = series.stream().map(OeGame::gameNo).sorted().toList();
+			boolean gap = numbers.getFirst() != 1 || numbers.getLast() != numbers.size();
+			long aWins = series.stream().filter(game -> game.blue().teamName().equals(key.teamA()) == game.blue().win()).count();
+			long maxWins = Math.max(aWins, series.size() - aWins);
+			if (gap || maxWins < 2) {
+				warnings.add(key.date() + " " + key.teamA() + " vs " + key.teamB() + ": 세트 번호 " + numbers
+						+ ", 승수 " + aWins + ":" + (series.size() - aWins) + " → 원천에 세트가 빠진 것으로 보임 (순위표 집계 제외)");
+			}
+		});
+		return warnings;
 	}
 
 	/** 같은 날 같은 두 팀 시리즈 안에서 세트 번호가 겹치면 오류 */

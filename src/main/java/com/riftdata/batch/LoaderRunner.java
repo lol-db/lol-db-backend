@@ -51,6 +51,13 @@ public class LoaderRunner implements CommandLineRunner {
 					제외한 행: 다른 리그 {}, 제외 split {}, 미완성 데이터 {}, 다른 연도 {}
 					""", games.size(), series, players, period, stages, teams,
 				read.otherLeagueRows(), read.excludedSplitRows(), read.incompleteRows(), read.otherYearRows());
+		warn(read.warnings());
+	}
+
+	private static void warn(java.util.List<String> warnings) {
+		if (!warnings.isEmpty()) {
+			log.warn("원천 데이터 경고 {}건 (적재는 함)\n  - {}", warnings.size(), String.join("\n  - ", warnings));
+		}
 	}
 
 	@Override
@@ -81,6 +88,7 @@ public class LoaderRunner implements CommandLineRunner {
 					result.otherLeagueRows(), result.excludedSplitRows(), result.incompleteRows(), result.otherYearRows(),
 					result.recalculation().scoredSets(), result.recalculation().pogs(),
 					result.recalculation().seasonPlayers(), result.recalculation().gradedPlayers());
+			warn(result.warnings());
 		} catch (LoadValidationException e) {
 			log.error("{}\n아무것도 적재하지 않았습니다.", e.getMessage());
 			throw new IllegalStateException("CSV 적재 중단: 사전 검증 실패");

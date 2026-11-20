@@ -159,6 +159,21 @@ class LckCsvLoaderTests {
 	}
 
 	@Test
+	@DisplayName("원천에 세트가 빠진 시리즈는 경고만 하고 적재한다 (2세트만 있음)")
+	void warnsIncompleteSeries() throws Exception {
+		Path file = new OeCsvBuilder()
+				.game("2026-04-01 08:10:00", 1, REGULAR, false, "Team A", "Team B", true)
+				.game("2026-04-01 09:10:00", 2, REGULAR, false, "Team A", "Team B", true)
+				.game("2026-04-02 08:10:00", 2, REGULAR, false, "Team A", "Team B", false)
+				.write(dir);
+		LckCsvLoader.Result result = loader.load(file, false);
+
+		assertThat(result.loadedGames()).isEqualTo(3);
+		assertThat(result.warnings()).singleElement().asString()
+				.contains("2026-04-02", "세트 번호 [2]", "승수 0:1");
+	}
+
+	@Test
 	@DisplayName("필요한 컬럼이 없으면 컬럼 이름을 알려 준다")
 	void rejectsMissingColumns() throws Exception {
 		Path file = dir.resolve("broken.csv");
