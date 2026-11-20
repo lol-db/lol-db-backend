@@ -1,0 +1,14 @@
+# 배포(GCP VM의 Docker) 프로필. docker-compose.prod.yml이 SPRING_PROFILES_ACTIVE=prod로 실행한다.
+spring:
+  datasource:
+    # 서버는 조회 전용 계정(riftdata_app)으로 접속한다. API가 전부 GET이라 SELECT 권한만 있으면 된다.
+    username: ${DB_APP_USERNAME:${DB_USERNAME}}
+    password: ${DB_APP_PASSWORD:${DB_PASSWORD}}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    show-sql: false
+
+server:
+  # 컨테이너를 멈출 때 처리 중인 요청을 끝내고 종료한다.
+  shutdown: graceful
