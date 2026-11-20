@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -209,10 +208,13 @@ public class LckCsvLoader {
 		return found.isEmpty() ? null : found.getFirst();
 	}
 
-	/** 팀1 = 시리즈 첫 세트의 블루 팀. 세트 수(Bo3·Bo5)는 세트를 넣은 뒤 updateBestOf에서 정한다. */
+	/**
+	 * 팀1 = 시리즈 첫 세트의 블루 팀. 세트 수(Bo3·Bo5)는 세트를 넣은 뒤 updateBestOf에서 정한다.
+	 * 경기 일시는 LocalDateTime 그대로 넘긴다. java.sql.Timestamp로 바꾸면 JVM 시간대(CI는 UTC)에 따라 시각이 밀린다.
+	 */
 	private Long insertMatch(OeGame first, Map<String, Long> teams, Map<StageKey, Long> stages) {
 		return insert("INSERT INTO lck_match (match_time, sets, team1_id, team2_id, stage_id) VALUES (?, 3, ?, ?, ?)",
-				Timestamp.valueOf(first.playedAt()), teams.get(first.blue().code()), teams.get(first.red().code()),
+				first.playedAt(), teams.get(first.blue().code()), teams.get(first.red().code()),
 				stages.get(first.stage()));
 	}
 

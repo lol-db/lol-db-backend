@@ -7,7 +7,6 @@ import com.riftdata.domain.player.service.PlayerMetric;
 import com.riftdata.global.common.Position;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -57,7 +56,7 @@ public class SeasonRecalculator {
 	public Result recalculate() {
 		LocalDateTime start = LocalDateTime.of(properties.getSeasonYear(), 1, 1, 0, 0);
 		List<SeasonSet> sets = jdbc.query(SEASON_SETS_SQL, SeasonRecalculator::seasonSet,
-				Timestamp.valueOf(start), Timestamp.valueOf(start.plusYears(1)));
+				start, start.plusYears(1));
 		Map<Long, TeamTotals> teamTotals = teamTotals();
 
 		Map<Long, Double> setScores = setScores(sets, teamTotals);
@@ -145,7 +144,7 @@ public class SeasonRecalculator {
 					score == null ? null : toPoints(score.area(PlayerArea.GROWTH)),
 					score == null ? null : toPoints(score.area(PlayerArea.VISION)),
 					score == null ? null : toPoints(score.area(PlayerArea.SURVIVAL)),
-					ranks.get(playerId), Timestamp.valueOf(now)});
+					ranks.get(playerId), now});
 		});
 		jdbc.batchUpdate("""
 				INSERT INTO player_season (player_id, sets, total_points, combat_points, damage_points, laning_points,
@@ -256,7 +255,7 @@ public class SeasonRecalculator {
 
 	private static SeasonSet seasonSet(ResultSet rs, int rowNum) throws SQLException {
 		OverviewSet set = new OverviewSet(rs.getLong("player_id"), rs.getLong("team_set_id"), rs.getLong("match_id"),
-				rs.getTimestamp("match_time").toLocalDateTime(), rs.getInt("set_number"), rs.getInt("duration_sec"),
+				rs.getObject("match_time", LocalDateTime.class), rs.getInt("set_number"), rs.getInt("duration_sec"),
 				rs.getLong("champion_id"), rs.getString("champion_name"), null, null, rs.getBoolean("victory"),
 				rs.getInt("kills"), rs.getInt("deaths"), rs.getInt("assists"), rs.getInt("cs"),
 				rs.getInt("damage_to_champions"), rs.getInt("earned_golds"), rs.getInt("vision_points"),
