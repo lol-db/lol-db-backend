@@ -6,16 +6,13 @@ import java.util.List;
 
 /**
  * 팀 상세 (API-11, SCR-006). GET /api/v1/teams/{teamId}
+ * 팀명·감독 컬럼이 DB에 없어 팀은 teamId, code만 보낸다.
  *
- * @param name  팀명. DB에 컬럼이 없어 null
- * @param coach 감독. DB에 컬럼이 없어 null
  * @param rank  정규 시즌 순위 (API-08과 같은 계산)
  */
 public record TeamDetailResponse(
 		Long teamId,
 		String code,
-		String name,
-		String coach,
 		int rank,
 		int wins,
 		int losses,
@@ -33,7 +30,7 @@ public record TeamDetailResponse(
 	 * @param grade        시즌 등급. 선수 도메인의 등급 기준이 정해지기 전까지 null
 	 * @param sets         세트 기록이 있는 세트 수 (플레이오프 포함). 아래 값은 모두 이 세트들로 계산한다
 	 * @param avgRating    세트 평점(0~10) 평균, 소수 1자리. 평점이 계산된 세트가 없으면 null
-	 * @param kda          (K + A) ÷ max(D, 1), 소수 1자리. 세트가 없으면 null
+	 * @param kda          (K + A) ÷ max(D, 1), 소수 2자리. 세트가 없으면 null
 	 * @param mainChampion 가장 많이 쓴 챔피언 (같으면 이름순). 세트가 없으면 null
 	 */
 	public record RosterPlayer(
@@ -54,7 +51,7 @@ public record TeamDetailResponse(
 	/**
 	 * 팀 지표 하나.
 	 *
-	 * @param value      비율은 0~1(소수 3자리), 골드 차는 정수, 경기 시간은 초. 세트 기록이 없으면 null
+	 * @param value      비율은 0~1(소수 3자리), 골드 차는 소수 2자리, 경기 시간은 초(정수). 세트 기록이 없으면 null
 	 * @param leagueRank 리그 내 순위 (클수록 1위, 같은 값이면 같은 순위). 진영 승률·경기 시간은 순위를 매기지 않아 null
 	 */
 	public record TeamStat(String key, String label, Number value, Integer leagueRank) {

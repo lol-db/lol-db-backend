@@ -140,12 +140,12 @@ class TeamControllerTests {
 	}
 
 	@Test
-	@DisplayName("팀 목록은 teamId, code, name을 준다 (팀명 컬럼이 없어 name은 null)")
+	@DisplayName("팀 목록은 teamId, code만 준다 (팀명 컬럼이 없어 name 필드 없음)")
 	void listsTeams() throws Exception {
 		mockMvc.perform(get("/api/v1/teams"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[?(@.code == 'TSA')].teamId").value(tsa.getId().intValue()))
-				.andExpect(jsonPath("$[?(@.code == 'TSA')].name").value(contains((Object) null)));
+				.andExpect(jsonPath("$[0].name").doesNotExist());
 	}
 
 	@Test
@@ -155,6 +155,7 @@ class TeamControllerTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.playoffTeamCount").value(6))
 				.andExpect(jsonPath("$.asOf").exists())
+				.andExpect(jsonPath("$.rows[0].name").doesNotExist())
 				.andExpect(jsonPath("$.rows[?(@.code == 'TSA')].matches").value(2))
 				.andExpect(jsonPath("$.rows[?(@.code == 'TSA')].wins").value(2))
 				.andExpect(jsonPath("$.rows[?(@.code == 'TSA')].setWins").value(4))
@@ -250,8 +251,8 @@ class TeamControllerTests {
 		mockMvc.perform(get("/api/v1/teams/{id}", tsa.getId()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.code").value("TSA"))
-				.andExpect(jsonPath("$.name").value(nullValue()))
-				.andExpect(jsonPath("$.coach").value(nullValue()))
+				.andExpect(jsonPath("$.name").doesNotExist())
+				.andExpect(jsonPath("$.coach").doesNotExist())
 				.andExpect(jsonPath("$.rank").value(rankOf("TSA")))
 				.andExpect(jsonPath("$.wins").value(2))
 				.andExpect(jsonPath("$.losses").value(0))
@@ -265,7 +266,7 @@ class TeamControllerTests {
 				// 세트 9개 (M1 3, M2 2, M4 1, M5 3). 이긴 세트는 모두 블루, 진 세트는 모두 레드
 				.andExpect(jsonPath("$.teamStats.length()").value(7))
 				.andExpect(jsonPath("$.teamStats[0].key").value("GD15"))
-				.andExpect(jsonPath("$.teamStats[0].value").value(1000))
+				.andExpect(jsonPath("$.teamStats[0].value").value(1000.0))
 				.andExpect(jsonPath("$.teamStats[?(@.key == 'FIRST_DRAGON_RATE')].value").value(contains(0.444)))
 				.andExpect(jsonPath("$.teamStats[?(@.key == 'AVG_DURATION_SEC')].value").value(contains(1800)))
 				.andExpect(jsonPath("$.teamStats[?(@.key == 'BLUE_WIN_RATE')].value").value(contains(1.0)))

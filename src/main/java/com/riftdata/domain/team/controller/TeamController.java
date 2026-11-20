@@ -20,7 +20,7 @@ public class TeamController {
 
 	private final TeamService teamService;
 
-	@Operation(summary = "팀 목록 (API-10)", description = "팀코드 오름차순. 팀명 컬럼이 없어 name은 null")
+	@Operation(summary = "팀 목록 (API-10)", description = "팀코드 오름차순. 팀명 컬럼이 없어 teamId, code만 보냄")
 	@GetMapping
 	public List<TeamResponse> getTeams() {
 		return teamService.getTeams();

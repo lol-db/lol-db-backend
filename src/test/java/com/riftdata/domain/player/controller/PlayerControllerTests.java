@@ -101,7 +101,7 @@ class PlayerControllerTests {
 				.andExpect(jsonPath("$.summary.assists").value(7))
 				.andExpect(jsonPath("$.summary.kda").value(4.33))
 				.andExpect(jsonPath("$.summary.teamKills").value(15))
-				.andExpect(jsonPath("$.summary.killParticipation").value(0.8667))
+				.andExpect(jsonPath("$.summary.killParticipation").value(0.867))
 				// 개인 CSM은 (6 + 10) / 2이며, 경기 시간을 합산한 비율과 다릅니다.
 				.andExpect(jsonPath("$.summary.csPerMin").value(8.0))
 				.andExpect(jsonPath("$.summary.positionAvgCsPerMin").value(7.0))
@@ -244,7 +244,7 @@ class PlayerControllerTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.summary.sets").value(3))
 				.andExpect(jsonPath("$.summary.kills").value(6))
-				.andExpect(jsonPath("$.summary.winRate").value(0.3333))
+				.andExpect(jsonPath("$.summary.winRate").value(0.333))
 				.andExpect(jsonPath("$.summary.csPerMin").value(6.0))
 				.andExpect(jsonPath("$.summary.positionAvgCsPerMin").value(5.0))
 				// 변환된 6.0점과 6.1점의 평균 6.05는 6.1점으로 반올림합니다.

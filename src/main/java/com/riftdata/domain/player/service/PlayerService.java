@@ -10,11 +10,10 @@ import com.riftdata.domain.player.repository.PlayerSeasonRepository;
 import com.riftdata.domain.player.repository.PlayerStatisticsRepository;
 import com.riftdata.domain.player.repository.PlayerStatisticsRepository.CsSample;
 import com.riftdata.domain.player.repository.PlayerStatisticsRepository.SetRecord;
+import com.riftdata.global.common.Decimals;
 import com.riftdata.global.common.Rating;
 import com.riftdata.global.exception.BusinessException;
 import com.riftdata.global.exception.ErrorCode;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -106,34 +105,22 @@ public class PlayerService {
 				.mapToLong(id -> teamKillsBySet.getOrDefault(id, 0L)).sum();
 		List<Double> ratings = records.stream().map(SetRecord::totalPoints)
 				.map(Rating::fromPoints).filter(Objects::nonNull).toList();
-		Double averageRating = rounded(ratings.stream().mapToDouble(Double::doubleValue).average(), 1);
+		Double averageRating = Rating.average(ratings);
 		Double bestRating = ratings.stream().max(Double::compareTo).orElse(null);
 		int pogCount = (int) records.stream().filter(SetRecord::pog).count();
 		List<CsSample> ownCs = records.stream()
 				.map(row -> new CsSample(row.cs(), row.durationSeconds())).toList();
 
-		return new Summary(sets, wins, ratio(wins, sets, 4), kills, deaths, assists,
-				sets == 0 ? null : ratio(kills + assists, Math.max(deaths, 1), 2),
-				ratio(kills + assists, teamKills, 4), teamKills,
+		return new Summary(sets, wins, Decimals.rate(wins, sets), kills, deaths, assists,
+				sets == 0 ? null : Decimals.kda(kills, deaths, assists),
+				Decimals.rate(kills + assists, teamKills), teamKills,
 				averageCs(ownCs), averageCs(comparison), averageRating, bestRating, pogCount);
 	}
 
 	private static Double averageCs(List<CsSample> samples) {
 		// 화면설계서와 같이 세트별 분당 CS의 산술평균입니다. 0초 기록은 계산에서 제외합니다.
-		return rounded(samples.stream().filter(sample -> sample.durationSeconds() > 0)
-				.mapToDouble(sample -> sample.cs() * 60.0 / sample.durationSeconds()).average(), 2);
-	}
-
-	private static Double ratio(long numerator, long denominator, int scale) {
-		if (denominator == 0) {
-			return null;
-		}
-		return BigDecimal.valueOf(numerator).divide(BigDecimal.valueOf(denominator),
-				scale, RoundingMode.HALF_UP).doubleValue();
-	}
-
-	private static Double rounded(OptionalDouble value, int scale) {
-		return value.isEmpty() ? null : BigDecimal.valueOf(value.getAsDouble())
-				.setScale(scale, RoundingMode.HALF_UP).doubleValue();
+		OptionalDouble average = samples.stream().filter(sample -> sample.durationSeconds() > 0)
+				.mapToDouble(sample -> sample.cs() * 60.0 / sample.durationSeconds()).average();
+		return average.isEmpty() ? null : Decimals.stat(average.getAsDouble());
 	}
 }

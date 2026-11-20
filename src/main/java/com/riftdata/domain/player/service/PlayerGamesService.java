@@ -10,6 +10,7 @@ import com.riftdata.domain.player.repository.PlayerGamesRepository;
 import com.riftdata.domain.player.repository.PlayerGamesRepository.GameRow;
 import com.riftdata.domain.player.repository.PlayerGamesRepository.MatchTeam;
 import com.riftdata.domain.player.repository.PlayerRepository;
+import com.riftdata.global.common.Decimals;
 import com.riftdata.global.common.Rating;
 import com.riftdata.global.exception.BusinessException;
 import com.riftdata.global.exception.ErrorCode;
@@ -79,9 +80,9 @@ public class PlayerGamesService {
 		Integer goldDiff15 = row.goldAt15() == null || row.opponentGoldAt15() == null
 				? null : row.goldAt15() - row.opponentGoldAt15();
 		Double csPerMin = row.durationSec() == 0 ? null
-				: PlayerQuerySupport.round(row.cs() * 60.0 / row.durationSec(), 2);
+				: Decimals.stat(row.cs() * 60.0 / row.durationSec());
 		Double dpm = row.durationSec() == 0 ? null
-				: PlayerQuerySupport.round(row.damage() * 60.0 / row.durationSec(), 2);
+				: Decimals.stat(row.damage() * 60.0 / row.durationSec());
 		return new SetInfo(row.setNo(), new ChampionInfo(row.championId(), row.championName()), row.win(),
 				row.kills(), row.deaths(), row.assists(), csPerMin, dpm, goldDiff15,
 				row.durationSec(), Rating.fromPoints(row.totalPoints()), row.pog());
