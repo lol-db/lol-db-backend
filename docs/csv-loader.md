@@ -95,12 +95,7 @@ Oracle's Elixir 2026 경기 CSV를 DB에 넣고, 세트 점수·POG(B3)와 선�
 
 ## 6. 테스트
 
-로컬 DB에 실데이터를 넣은 뒤에는 포지션 전체를 비교하는 테스트(랭킹·백분위·시즌 등급)가 실데이터 때문에 기대값과 달라집니다.
-테스트는 빈 DB에서 실행합니다 (CI는 항상 빈 DB).
-
-```bash
-DB_NAME=riftdata_test ./gradlew test   # riftdata_test에 schema.sql을 먼저 적용
-```
+테스트는 서버 DB와 분리된 테스트 DB(`riftdata_test`)에서 돌므로, 서버 DB에 실데이터를 적재해도 그대로 실행하면 됩니다 (README "테스트 DB").
 
 ```bash
 ./gradlew test --tests 'com.riftdata.batch.*'
