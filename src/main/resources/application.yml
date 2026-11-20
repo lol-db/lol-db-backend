@@ -22,3 +22,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+# 허용할 프론트 주소입니다. 빈 값이면 다른 출처를 허용하지 않습니다.
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}

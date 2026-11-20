@@ -114,3 +114,18 @@ com.riftdata
 ```
 
 전체 검사는 기존과 같이 DB를 준비한 뒤 `.\gradlew.bat build`로 실행합니다.
+
+## CORS 설정
+
+`/api/v1/**`의 `GET`, `HEAD` 요청에 적용하는 공통 설정입니다.
+프론트 주소를 확인한 뒤 개인 `.env`에 설정합니다. 아래 주소는 예시입니다.
+
+```properties
+CORS_ALLOWED_ORIGINS=http://localhost:5173
+```
+
+여러 주소는 쉼표로 구분하며, 페이지 경로와 `*`는 제외합니다. 빈 값이면 다른 출처를 허용하지 않습니다.
+변경 후 백엔드를 다시 시작합니다.
+
+CORS 검사: `.\gradlew.bat test --tests com.riftdata.global.config.CorsConfigTests`
+실제 프론트 연동은 별도로 확인합니다.
