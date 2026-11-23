@@ -183,7 +183,8 @@ class MetaControllerTests {
 	@Test
 	@DisplayName("지표 리더는 10세트 이상 선수 가운데 지표마다 1위를 준다")
 	void leaders() {
-		// ZqLead(ZQA MID): 10세트, 매 세트 20/0/10, 피해 60,000, 시야 300, 15분 골드 9,000, 100점, 30분
+		// ZqLead(ZQA MID): 10세트, 매 세트 20/0/10, 피해 60,000, 시야 300, 15분 골드 9,000, 100점
+		// 경기 시간은 1~5세트 20분, 6~10세트 40분. DPM·VSPM이 합계÷전체 시간이 아니라 세트별 평균인지 가른다.
 		// ZqLane(ZQB MID): 같은 10세트의 상대 라이너, 15분 골드 3,000
 		// ZqFew (ZQA TOP): 9세트뿐이라 값이 더 커도 제외
 		Player lead = playerRepository.save(Player.builder().team(zqa).nickname("ZqLead").position(Position.MID).build());
@@ -197,7 +198,7 @@ class MetaControllerTests {
 						.matchTime(LocalDateTime.of(2099, 4, 4, 17, 0)).build()));
 		for (int i = 1; i <= 10; i++) {
 			MatchSet set = setRepository.save(MatchSet.builder().match(matches.get((i - 1) / 5)).setNumber((i - 1) % 5 + 1)
-					.gameId("zq-lead-" + (++gameSeq)).version("99.1").playTime(LocalTime.of(0, 30)).build());
+					.gameId("zq-lead-" + (++gameSeq)).version("99.1").playTime(LocalTime.of(0, i <= 5 ? 20 : 40)).build());
 			TeamSet a = teamSetRepository.save(TeamSet.builder().matchSet(set).team(zqa).side(Side.BLUE).victory(true).build());
 			TeamSet b = teamSetRepository.save(TeamSet.builder().matchSet(set).team(zqb).side(Side.RED).victory(false).build());
 			playerSetRepository.save(PlayerSet.builder().teamSet(a).position(Position.MID).player(lead).champion(champion)
@@ -218,9 +219,9 @@ class MetaControllerTests {
 		assertThat(byMetric).containsOnlyKeys("KDA", "DPM", "GD15", "VSPM", "AVG_RATING");
 		assertThat(byMetric.values()).extracting(LeaderResponse::name).containsOnly("ZqLead");
 		assertThat(byMetric.get("KDA").value()).isEqualTo(300.0);       // (200 + 100) / max(0, 1)
-		assertThat(byMetric.get("DPM").value()).isEqualTo(2000.0);      // 600,000 / 300분
+		assertThat(byMetric.get("DPM").value()).isEqualTo(2250.0);      // (3,000 × 5 + 1,500 × 5) / 10. 합계 방식이면 2,000
 		assertThat(byMetric.get("GD15").value()).isEqualTo(6000.0);     // 9,000 − 3,000
-		assertThat(byMetric.get("VSPM").value()).isEqualTo(10.0);       // 3,000 / 300분
+		assertThat(byMetric.get("VSPM").value()).isEqualTo(11.25);      // (15 × 5 + 7.5 × 5) / 10. 합계 방식이면 10
 		assertThat(byMetric.get("AVG_RATING").value()).isEqualTo(10.0); // 100점 → 10.0
 		assertThat(byMetric.get("KDA").teamCode()).isEqualTo("ZQA");
 		assertThat(byMetric.get("KDA").playerId()).isEqualTo(lead.getId());

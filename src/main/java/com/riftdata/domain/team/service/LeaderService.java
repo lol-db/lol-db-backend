@@ -14,7 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.function.Function;
+import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 지표 리더 (API-09). 전체 포지션, 세트 기록이 minSetsForGrade(기본 10) 이상인 선수 가운데 지표마다 1위.
  * 대상: 플레이오프를 포함한 모든 세트 기록. 같은 값이면 세트 수가 많은 선수, 그다음 닉네임순.
+ * DPM·VSPM은 선수 API와 같이 세트별 분당 값의 평균이다.
  */
 @Service
 @RequiredArgsConstructor
@@ -88,9 +91,6 @@ public class LeaderService {
 			int kills = sets.stream().mapToInt(LeaderSetRow::kills).sum();
 			int deaths = sets.stream().mapToInt(LeaderSetRow::deaths).sum();
 			int assists = sets.stream().mapToInt(LeaderSetRow::assists).sum();
-			double minutes = sets.stream().mapToInt(s -> s.playTime().toSecondOfDay()).sum() / 60.0;
-			long damage = sets.stream().mapToLong(LeaderSetRow::damageToChampions).sum();
-			long vision = sets.stream().mapToLong(LeaderSetRow::visionPoints).sum();
 
 			// 15분 골드 차: 같은 세트 상대 팀의 같은 포지션과 비교. 둘 다 값이 있는 세트만 평균한다.
 			List<Integer> diffs = sets.stream()
@@ -105,10 +105,22 @@ public class LeaderService {
 					first.teamCode(),
 					sets.size(),
 					Decimals.kda(kills, deaths, assists),
-					minutes == 0 ? null : Decimals.stat(damage / minutes),
+					perMinuteMean(sets, LeaderSetRow::damageToChampions),
 					diffs.isEmpty() ? null : Decimals.stat(diffs.stream().mapToInt(Integer::intValue).average().orElseThrow()),
-					minutes == 0 ? null : Decimals.stat(vision / minutes),
+					perMinuteMean(sets, LeaderSetRow::visionPoints),
 					avgRating);
+		}
+
+		/**
+		 * 세트마다 (값 × 60 ÷ 경기 시간(초))를 구해 평균한다. 선수 API의 DPM·VSPM(PlayerMetric)과 같은 방식이다.
+		 * 경기 시간이 0인 세트는 빼고, 남는 세트가 없으면 null.
+		 */
+		private static Double perMinuteMean(List<LeaderSetRow> sets, ToLongFunction<LeaderSetRow> value) {
+			OptionalDouble mean = sets.stream()
+					.filter(s -> s.playTime().toSecondOfDay() > 0)
+					.mapToDouble(s -> value.applyAsLong(s) * 60.0 / s.playTime().toSecondOfDay())
+					.average();
+			return mean.isPresent() ? Decimals.stat(mean.getAsDouble()) : null;
 		}
 
 		private static Integer goldDiff(LeaderSetRow set, Map<LaneKey, Map<Long, Integer>> goldAt15) {
