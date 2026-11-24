@@ -1,0 +1,1 @@
+select ps1_0.player_id,ps1_0.total_points from player_set ps1_0 join team_set ts1_0 on ts1_0.team_set_id=ps1_0.team_set_id join match_set ms1_0 on ms1_0.set_id=ts1_0.set_id join lck_match m1_0 on m1_0.match_id=ms1_0.match_id where m1_0.match_time>='2026-01-01 00:00:00' and m1_0.match_time<'2027-01-01 00:00:00'
