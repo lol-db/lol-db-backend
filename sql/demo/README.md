@@ -10,6 +10,7 @@
 | [02_privilege_check.sql](02_privilege_check.sql) | 앱 계정은 SELECT만 되고 변경은 ERROR 1142 | riftdata_app |
 | [03_exceptions.sql](03_exceptions.sql) | CHECK·UNIQUE·FK 위반을 DB가 거부 (전부 실패해야 정상) | riftdata_loader |
 | [04_state_change.sql](04_state_change.sql) | INSERT·UPDATE·DELETE가 API에 바로 반영, CASCADE 삭제 | riftdata_loader |
+| [../views/screen_views.sql](../views/screen_views.sql) | 화면별 조회 뷰 13개 (만들기는 root, 조회는 SELECT 권한만). 목록과 설명은 [views/README.md](../views/README.md) | root |
 
 ## 시연 순서
 
